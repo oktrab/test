@@ -1,0 +1,252 @@
+:root{
+  --bg: #f2f6fb;
+  --row-even: #ffffff;
+  --row-odd: #f7fafc;
+  --top1: #fdf6bf;
+  --top2: #e9edf2;
+  --top3: #fde59a;
+  --releg: #ffe1e1;
+  --bar-top: #e3b341;
+  --bar-top2: #9aa3ad;
+  --bar-top3: #e8b20f;
+  --bar-releg: #ff6b6b;
+  --text: #0e1b2b;
+  --divider: #cfd7e3;
+  --accent: #0f6fff;
+  --radius: 12px;
+  --rowH: 86px; /* wysokość wiersza gdy >12 drużyn */
+}
+
+html, body { height: 100%; }
+body{
+  margin:0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: #10131a linear-gradient(180deg,#10131a,#121828 50%,#0e1424);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app{
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 18px;
+  padding: 18px;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.panel{
+  background: #0f1628;
+  color: #e5ecf8;
+  border: 1px solid #1f2b46;
+  border-radius: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+}
+.panel h2{ margin: 0 0 8px; font-size: 18px; }
+.panel .row{ display:flex; gap:8px; align-items:center; margin:8px 0; }
+.panel input[type="number"], .panel input[type="text"]{
+  background:#0b1222; border:1px solid #223055; color:#e5ecf8; border-radius:8px; padding:8px 10px;
+}
+.btn{
+  background: var(--accent);
+  color: #fff; border: none; border-radius: 10px;
+  padding: 10px 14px; cursor:pointer; font-weight:600;
+}
+.btn.secondary{ background:#223055; }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
+.sep{ border:none;border-top:1px solid #253052; margin:14px 0 }
+.note{ font-size:12px; color:#a9b6cb; }
+
+/* STAGE 1920×1080 */
+.stage-wrap{
+  overflow:auto;
+  background: #0b1222;
+  border: 1px solid #1f2b46;
+  border-radius: 14px;
+}
+.stage{
+  box-sizing: border-box;
+  width: 1920px;
+  height: 1080px;
+  padding: 24px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Eksport: ukryj UI */
+.stage.exporting .row-actions{ display: none !important; }
+.stage.exporting .row-item.selected{ outline: none !important; }
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom: 12px;
+}
+.title{ font-weight: 800; font-size: 38px; color:#10243a; }
+
+/* BOARD */
+.board{
+  background: #fff;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(16,24,40,.08);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.board-header{
+  display:grid;
+  grid-template-columns: 110px 1fr 150px; /* poz | drużyna | pkt */
+  align-items:center;
+  padding: 0 16px;
+  height: 76px;
+  border-bottom: 1px solid var(--divider);
+  font-weight: 700;
+  font-size: 20px;
+  color: #334155;
+  background: #f8fafc;
+}
+
+/* Wiersze: domyślnie równe wysokości – 12 mieści się bez scrolla */
+#rows{
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: 1fr;   /* każdy rząd = 1/n wysokości (n = liczba wierszy) */
+}
+/* Gdy >12 drużyn – stałe wiersze i przewijanie w środku tabeli */
+#rows.scroll{
+  grid-auto-rows: var(--rowH);
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* WIERSZE */
+.row-item{
+  position: relative;
+  display:grid;
+  grid-template-columns: 110px 1fr 150px; /* poz | drużyna | pkt */
+  align-items:center;
+  gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid #eef2f7;
+  cursor: default;
+}
+.row-item:nth-child(odd){ background: var(--row-odd); }
+.row-item:nth-child(even){ background: var(--row-even); }
+.row-item::before{
+  content:"";
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width: 12px;
+  background: transparent;
+}
+.row-item.first{ background: var(--top1); }
+.row-item.first::before{ background: var(--bar-top); }
+.row-item.second{ background: var(--top2); }
+.row-item.second::before{ background: var(--bar-top2); }
+.row-item.third{ background: var(--top3); }
+.row-item.third::before{ background: var(--bar-top3); }
+.row-item.releg{ background: var(--releg); }
+.row-item.releg::before{ background: var(--bar-releg); }
+
+/* Zaznaczenie */
+.row-item.selected{
+  outline: 3px solid rgba(15,111,255,.45);
+  outline-offset: -3px;
+}
+
+.pos{
+  font-weight: 800;
+  font-size: 28px;
+  color: #243244;
+  display:flex; gap:10px; align-items:center; justify-content:flex-start;
+}
+
+.team{
+  display:flex; align-items:center; gap:18px;
+  min-width: 0; /* potrzebne by ellipsis działał */
+}
+.logo{
+  width: 64px; height:64px; object-fit: contain;
+  background:#f2f4f7; border-radius: 12px; border: 1px solid #e5e8ef;
+  flex: 0 0 64px;
+}
+.name{
+  font-size: 24px; font-weight: 700; outline: none; cursor: text;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; /* dla ellipsis */
+}
+.name[contenteditable="true"]:focus{ box-shadow: inset 0 -2px 0 #9ec3ff; }
+
+.points{
+  font-weight: 900; font-size: 24px; text-align:center; color:#082038;
+  border-left: 2px solid var(--divider);
+  padding-left: 16px;
+  cursor: text;
+}
+
+/* Przyciski wiersza – w TEJ SAMEJ LINII (w kolumnie Drużyna, za nazwą) */
+.row-actions{
+  margin-left: auto;       /* dosuń do prawej krawędzi kolumny drużyny */
+  display:flex; gap:6px;
+  opacity:.0; transition: .15s opacity;
+}
+.row-item:hover .row-actions{ opacity: 1; }
+.icon-btn{
+  background:#f1f5f9; border:1px solid #d8e1ee; color:#0b2239;
+  padding:6px 8px; border-radius:8px; cursor:pointer; font-size:12px;
+}
+
+/* Baza klubów – kafelki */
+.db-search{
+  width: 100%;
+  background:#0b1222; border:1px solid #223055; color:#e5ecf8; border-radius:8px; padding:8px 10px;
+}
+.db-list{
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+  max-height: 260px;
+  overflow: auto;
+}
+.db-item{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: linear-gradient(180deg,#0b1222,#0e1730);
+  border:1px solid #223055;
+  color:#e5ecf8;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: .15s border-color, .15s background;
+}
+.db-item:hover{ border-color:#2a3c6b; background:#0f1c39; }
+.db-item.selected{
+  outline: 2px solid #0f6fff;
+  background: #11254a;
+}
+.db-badge{
+  width: 26px; height: 26px; border-radius: 6px;
+  background: color-mix(in oklab, var(--clr, #2b67ff) 30%, #0b1222);
+  color: #cfe2ff;
+  display:flex; align-items:center; justify-content:center;
+  font-weight: 800; font-size: 12px; letter-spacing: .3px;
+}
+.db-name{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Stopka całej strony (poza obrazem) */
+.site-footer{
+  padding: 12px 18px 18px;
+  text-align: right;
+  font-weight: 700;
+  color: #a9b6cb;
+}

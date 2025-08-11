@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Generator tabeli ligowej – Full HD</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <h2>Ustawienia</h2>
+
+      <div class="row">
+        <label>Ilość miejsc promowanych:</label>
+        <input id="inPromotion" type="number" min="0" value="3" style="width:90px">
+      </div>
+      <div class="row">
+        <label>Ilość miejsc spadkowych:</label>
+        <input id="inReleg" type="number" min="0" value="2" style="width:90px">
+      </div>
+
+      <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
+        <button id="btnAdd" class="btn secondary">Dodaj wiersz</button>
+        <button id="btnReset" class="btn secondary">Reset (domyślne)</button>
+        <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
+      </div>
+
+      <hr class="sep">
+
+      <h2>Baza klubów</h2>
+      <p class="muted">Kliknij wiersz w tabeli, aby go zaznaczyć. Potem wybierz klub poniżej.</p>
+      <input id="dbSearch" type="text" placeholder="Szukaj klubu..." class="db-search">
+      <div id="dbList" class="db-list"></div>
+      <div class="row" style="gap:10px">
+        <button id="btnDbAdd" class="btn secondary" disabled>Dodaj na koniec</button>
+        <button id="btnDbReplace" class="btn secondary" disabled>Zastąp zaznaczony</button>
+      </div>
+
+      <p class="note" style="margin-top:12px">
+        Herby ładujemy z folderu „herby” po dokładnej nazwie drużyny (.png).
+      </p>
+    </div>
+
+    <div class="stage-wrap">
+      <!-- To poniżej jest eksportowane do JPG -->
+      <div id="stage" class="stage">
+        <div class="topbar">
+          <div class="title" id="leagueTitle" contenteditable="true">Tabela ligowa</div>
+        </div>
+
+        <div class="board">
+          <div class="board-header">
+            <div style="padding-left:8px">Poz.</div>
+            <div>Drużyna</div>
+            <div style="text-align:center">Pkt</div>
+          </div>
+          <div id="rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stopka poza sekcją tabeli -->
+  <footer class="site-footer">powered by OKB</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
