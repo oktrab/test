@@ -6,7 +6,7 @@
   <title>Generator Tabeli Ligowej</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20250812">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
@@ -26,14 +26,15 @@
         <button id="btnAdd" class="btn secondary">Dodaj wiersz</button>
         <button id="btnReset" class="btn secondary">Reset (domyślne)</button>
         <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
+        <button id="btnExportAll" class="btn">Zapisz JPG – wszystkie wiersze</button>
       </div>
 
       <hr class="sep">
 
       <h2>Baza klubów</h2>
-      <p class="muted">Kliknij wiersz w tabeli, aby go zaznaczyć. Potem wybierz klub poniżej. Filtruj po tagach i dodawaj/zastępuj.</p>
+      <p class="muted">- Przeciągnij klub z listy i upuść na wiersz, żeby go podmienić. Kluby już użyte są zablokowane do przeciągania.<br>- Filtruj po tagach i dodawaj/zastępuj.</p>
 
-      <!-- Filtr tagów -->
+      <!-- Filtr tagów (single-select) -->
       <div class="tag-filter" id="tagFilter">
         <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
         <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
@@ -76,6 +77,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="app.js?v=20250812"></script>
+  <script src="app.js"></script>
 </body>
 </html>
