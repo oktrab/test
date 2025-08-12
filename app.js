@@ -80,7 +80,7 @@ function initDnD(){
         if (evt.oldIndex < selectedRowIndex && evt.newIndex >= selectedRowIndex) selectedRowIndex -= 1;
         else if (evt.oldIndex > selectedRowIndex && evt.newIndex <= selectedRowIndex) selectedRowIndex += 1;
       }
-      render();
+      render(); // po zmianie kolejności odśwież rzędy i bazę
     }
   });
 }
@@ -192,6 +192,7 @@ function render(){
       teams[i].name = item.name;
       setAutoLogo(img, teams[i]);
       acBox.style.display='none';
+      renderDbList();              // ← odśwież bazę natychmiast
       setTimeout(()=> nameEl.blur(), 0);
     }
     function showAC(){
@@ -224,6 +225,7 @@ function render(){
       if (!newName){
         teams[i].name = prevName;
         nameEl.textContent = prevName;
+        renderDbList();            // ← odśwież bazę (wrócił stary klub)
         return;
       }
       if (isNameTaken(newName, i)){
@@ -232,8 +234,10 @@ function render(){
         teams[i].name = prevName;
         nameEl.textContent = prevName;
         setAutoLogo(img, teams[i]);
+        renderDbList();            // ← duplikat: przywrót i odśwież bazę
       }else{
         teams[i].name = newName;
+        renderDbList();            // ← zmiana nazwy: odśwież bazę
       }
     });
 
@@ -276,6 +280,9 @@ function render(){
   // DnD kolejności
   initDnD();
   updateDbButtons();
+
+  // KLUCZ: po każdej zmianie tabeli odśwież bazę (wygaszanie/odblokowanie)
+  renderDbList();
 }
 
 /* ---------- Panel – stany przycisków ---------- */
@@ -317,6 +324,7 @@ function renderDbList(){
     const emotes = getEmotesFromTags(t.tags);
     if (emotes.length){ tags.textContent = emotes.join(' '); tags.title = 'Dyscypliny: ' + emotes.join(' '); }
 
+    // Zablokuj drag, jeśli klub już jest w tabeli
     const existsIdx = findTeamIndexByName(t.name);
     const disabled = existsIdx !== -1;
     item.setAttribute('aria-disabled', disabled ? 'true' : 'false');
@@ -389,7 +397,7 @@ rowsEl.addEventListener('drop', (e)=>{
   if (normalizeName(teams[idx].name) === normalizeName(name)) return;
 
   teams[idx].name = name;
-  render();
+  render();           // ← render() na końcu i tak wywoła renderDbList()
 });
 
 /* ---------- Ładowanie bazy z JSON (z cache-bust i komunikatem błędu) ---------- */
@@ -507,13 +515,14 @@ dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{
   const c = dbFiltered[dbSelectedIdx]; if(!c) return;
   if (findTeamIndexByName(c.name) !== -1){ alert('Ta drużyna już jest w tabeli.'); return; }
-  teams.push({ name: c.name, pts: 0 }); render();
+  teams.push({ name: c.name, pts: 0 }); render(); // render() odświeży też bazę
 });
 btnDbReplace.addEventListener('click', ()=>{
   const c = dbFiltered[dbSelectedIdx]; if (selectedRowIndex===-1 || !c) return;
   const existsIdx = findTeamIndexByName(c.name);
   if (existsIdx !== -1 && existsIdx !== selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; }
-  teams[selectedRowIndex] = { name: c.name, pts: teams[selectedRowIndex].pts || 0 }; render();
+  teams[selectedRowIndex] = { name: c.name, pts: teams[selectedRowIndex].pts || 0 };
+  render(); // i odśwież bazę
 });
 
 /* ---------- Start ---------- */
