@@ -31,7 +31,15 @@
       <hr class="sep">
 
       <h2>Baza klubów</h2>
-      <p class="muted">Kliknij wiersz w tabeli, aby go zaznaczyć. Potem wybierz klub poniżej. Tagi: ⚽ piłka, 🏀 kosz.</p>
+      <p class="muted">Kliknij wiersz w tabeli, aby go zaznaczyć. Potem wybierz klub poniżej. Filtruj po tagach i dodawaj/zastępuj.</p>
+
+      <!-- Filtr tagów -->
+      <div class="tag-filter" id="tagFilter">
+        <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
+        <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
+        <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść filtr">Wyczyść</button>
+      </div>
+
       <input id="dbSearch" type="text" placeholder="Szukaj klubu..." class="db-search">
       <div id="dbList" class="db-list"></div>
       <div class="row" style="gap:10px">

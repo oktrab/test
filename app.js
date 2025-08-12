@@ -29,6 +29,8 @@ let dbTeams = [];        // {name, tags?[]} z kluby.json
 let dbFiltered = [];
 let dbSelectedIdx = -1;
 let selectedRowIndex = -1;
+let dragIndex = -1;      // dla DnD
+const tagFilter = new Set(); // '⚽' / '🏀'
 
 // Elementy DOM
 const rowsEl = document.getElementById('rows');
@@ -77,15 +79,38 @@ function findTeamIndexByName(name){
   const n = name.trim().toLowerCase();
   return teams.findIndex(t => t.name.trim().toLowerCase() === n);
 }
+function stripAccents(s){
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function abbr(name){
+  const parts = name.trim().split(/\s+/);
+  return parts.map(p => p[0]).join('').slice(0,3).toUpperCase();
+}
+function colorFor(name){
+  let h = 0; for (const ch of name) h = (h*31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 70% 45%)`;
+}
 
-// Render tabeli
+/* ---------- Drag & Drop (uchwyt = kolumna Poz.) ---------- */
+function clearDropHints(){
+  document.querySelectorAll('.row-item.drop-top, .row-item.drop-bottom')
+    .forEach(el => { el.classList.remove('drop-top','drop-bottom'); });
+}
+function moveItem(arr, from, to){
+  if (from === to) return;
+  const item = arr.splice(from, 1)[0];
+  if (to > from) to -= 1;
+  arr.splice(to, 0, item);
+}
+
+/* ---------- Render tabeli ---------- */
 function render(){
   rowsEl.innerHTML = '';
   teams.forEach((t, i) => {
     const row = document.createElement('div');
     row.className = `row-item ${classForIndex(i)} ${i===selectedRowIndex ? 'selected' : ''}`;
     row.innerHTML = `
-      <div class="pos">${i+1}</div>
+      <div class="pos" title="Przeciągnij, aby zmienić kolejność">${i+1}</div>
       <div class="team">
         <img class="logo" alt="">
         <div class="name" contenteditable="true" spellcheck="false">${t.name}</div>
@@ -115,7 +140,7 @@ function render(){
       setAutoLogo(img, teams[i]);
     });
 
-    // edycja punktów: czyszczenie 0 na focus, sanitize, 0 na blur
+    // edycja punktów
     const ptsEl = row.querySelector('.pts');
     ptsEl.addEventListener('focus', e=>{
       const txt = e.currentTarget.textContent.trim();
@@ -135,7 +160,7 @@ function render(){
       teams[i].pts = Number(v);
     });
 
-    // akcje
+    // przyciski akcji
     row.querySelectorAll('.row-actions .icon-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const act = btn.dataset.act;
@@ -146,15 +171,53 @@ function render(){
       });
     });
 
+    // Drag handle = kolumna Poz.
+    const handle = row.querySelector('.pos');
+    handle.setAttribute('draggable','true');
+    handle.addEventListener('dragstart', (e)=>{
+      dragIndex = i;
+      handle.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+    });
+    handle.addEventListener('dragend', ()=>{
+      handle.classList.remove('dragging');
+      clearDropHints();
+      dragIndex = -1;
+    });
+
+    // Drop targets = każdy wiersz
+    row.addEventListener('dragover', (e)=>{
+      if (dragIndex === -1) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      clearDropHints();
+      const r = row.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height/2;
+      row.classList.add(before ? 'drop-top' : 'drop-bottom');
+    });
+    row.addEventListener('dragleave', clearDropHints);
+    row.addEventListener('drop', (e)=>{
+      if (dragIndex === -1) return;
+      e.preventDefault();
+      const r = row.getBoundingClientRect();
+      const before = e.clientY < r.top + r.height/2;
+      let to = i + (before ? 0 : 1);
+      moveItem(teams, dragIndex, to);
+      clearDropHints();
+      dragIndex = -1;
+      render();
+    });
+
     rowsEl.appendChild(row);
   });
 
-  // 12 wierszy bez scrolla; >12 włączamy przewijanie
+  // 12 wierszy bez scrolla; >12 przewijanie
   rowsEl.classList.toggle('scroll', teams.length > 12);
   updateDbButtons();
 }
 
-// Panel – stany przycisków
+/* ---------- Panel – stany przycisków ---------- */
 function updateDbButtons(){
   const hasDbSel = dbSelectedIdx !== -1 && dbFiltered[dbSelectedIdx];
   const selectedName = hasDbSel ? dbFiltered[dbSelectedIdx].name : null;
@@ -168,23 +231,33 @@ function updateDbButtons(){
   btnDbReplace.title = replacingConflict ? 'Ta drużyna już jest w tabeli' : '';
 }
 
-// Baza klubów (lista + tagi)
-function stripAccents(s){
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-}
-function abbr(name){
-  const parts = name.trim().split(/\s+/);
-  return parts.map(p => p[0]).join('').slice(0,3).toUpperCase();
-}
-function colorFor(name){
-  let h = 0; for (const ch of name) h = (h*31 + ch.charCodeAt(0)) % 360;
-  return `hsl(${h} 70% 45%)`;
+/* ---------- Baza klubów – kafelki z tagami + filtr ---------- */
+function getEmotesFromTags(raw){
+  let arr = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === 'string') arr = raw.split(/[,;\s]+/);
+  else if (raw && typeof raw.tag === 'string') arr = [raw.tag];
+  return arr
+    .map(x => (x || '').toString().trim())
+    .filter(Boolean)
+    .map(x => {
+      const lx = x.toLowerCase();
+      if (x === '⚽' || lx === 'pilka' || lx === 'piłka' || lx === 'soccer' || lx === 'football') return '⚽';
+      if (x === '🏀' || lx === 'kosz' || lx === 'basket' || lx === 'basketball') return '🏀';
+      return null;
+    })
+    .filter(Boolean);
 }
 function renderDbList(){
   const q = stripAccents(dbSearchEl.value.trim());
   dbFiltered = dbTeams
     .filter(t => !q || stripAccents(t.name).includes(q))
-    .slice(0, 100);
+    .filter(t => {
+      if (tagFilter.size === 0) return true;
+      const emotes = getEmotesFromTags(t.tags);
+      return emotes.some(e => tagFilter.has(e));
+    })
+    .slice(0, 200);
 
   dbListEl.innerHTML = '';
   dbFiltered.forEach((t, idx) => {
@@ -203,10 +276,8 @@ function renderDbList(){
 
     const tags = document.createElement('span');
     tags.className = 'db-tags';
-    // Akceptujemy tags jako tablicę lub pojedyncze pole "tag"
-    const rawTags = Array.isArray(t?.tags) ? t.tags : (t?.tag ? [t.tag] : []);
-    const emotes = rawTags.filter(x => x === '⚽' || x === '🏀');
-    if (emotes.length) {
+    const emotes = getEmotesFromTags(t.tags);
+    if (emotes.length){
       tags.textContent = emotes.join(' ');
       tags.title = 'Dyscypliny: ' + emotes.join(' ');
     }
@@ -225,19 +296,32 @@ function renderDbList(){
   updateDbButtons();
 }
 
-// Ładowanie bazy z JSON (stringi lub obiekty {name, tags})
+// Filtr tagów – UI
+document.querySelectorAll('#tagFilter .tag-pill').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const tag = btn.dataset.tag;
+    if (tag === '__clear'){
+      tagFilter.clear();
+      document.querySelectorAll('#tagFilter .tag-pill').forEach(b=>b.classList.remove('active'));
+    } else {
+      if (tagFilter.has(tag)){ tagFilter.delete(tag); btn.classList.remove('active'); }
+      else { tagFilter.add(tag); btn.classList.add('active'); }
+    }
+    renderDbList();
+  });
+});
+
+/* ---------- Ładowanie bazy z JSON ---------- */
 async function loadDb(){
   try{
     const res = await fetch(DB_URL, { cache: 'no-store' });
     const arr = await res.json();
     dbTeams = (Array.isArray(arr) ? arr : []).map(x => {
       if (typeof x === 'string') return { name: x, tags: [] };
-      const tags = Array.isArray(x?.tags) ? x.tags : (x?.tag ? [x.tag] : []);
-      const clean = tags.filter(t => t === '⚽' || t === '🏀'); // tylko dozwolone
-      return { name: x?.name || '', tags: clean };
+      return { name: x?.name || '', tags: x?.tags ?? x?.tag ?? [] };
     }).filter(t => t.name);
   }catch(e){
-    // fallback – bez tagów, ale z Twoim dodatkowym klubem
+    // fallback – bez tagów
     const base = defaultTeams.map(t => ({ name: t.name, tags: [] }));
     const extras = [
       "Areniscas Cadin","Górskie Piaskówki","Groklin Cedynia","Jeziorak Tar",
@@ -249,7 +333,7 @@ async function loadDb(){
   renderDbList();
 }
 
-// Eksport JPG 1920x1080 (herby w JPG wymagają http/https)
+/* ---------- Eksport JPG 1920x1080 ---------- */
 function waitForImages(node){
   const imgs = Array.from(node.querySelectorAll('img'));
   return Promise.all(imgs.map(img => new Promise(res=>{
@@ -283,7 +367,7 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   }
 });
 
-// Panel – przyciski
+/* ---------- Panel: przyciski ---------- */
 document.getElementById('btnAdd').addEventListener('click', ()=>{
   teams.push({ name: "Nowa drużyna", pts: 0 });
   render();
@@ -296,7 +380,7 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
 inPromotion.addEventListener('change', render);
 inReleg.addEventListener('change', render);
 
-// Baza klubów – akcje
+/* ---------- Baza klubów – akcje ---------- */
 dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{
   const chosen = dbFiltered[dbSelectedIdx];
@@ -320,6 +404,6 @@ btnDbReplace.addEventListener('click', ()=>{
   render();
 });
 
-// Start
+/* ---------- Start ---------- */
 render();
 loadDb();

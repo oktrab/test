@@ -113,14 +113,13 @@ body{
   background: #f8fafc;
 }
 
-/* Wiersze: domyślnie równe wysokości – 12 mieści się bez scrolla */
+/* Wiersze: 12 = równa wysokość; >12 = scroll */
 #rows{
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-auto-rows: 1fr;   /* każdy rząd = 1/n wysokości (n = liczba wierszy) */
+  grid-auto-rows: 1fr;
 }
-/* Gdy >12 drużyn – stałe wiersze i przewijanie w środku tabeli */
 #rows.scroll{
   grid-auto-rows: var(--rowH);
   overflow-y: auto;
@@ -131,7 +130,7 @@ body{
 .row-item{
   position: relative;
   display:grid;
-  grid-template-columns: 110px 1fr 150px; /* poz | drużyna | pkt */
+  grid-template-columns: 110px 1fr 150px;
   align-items:center;
   gap: 0;
   padding: 0 16px;
@@ -162,16 +161,30 @@ body{
   outline-offset: -3px;
 }
 
+/* wskaźnik dropu (drag&drop) */
+.row-item.drop-top::after,
+.row-item.drop-bottom::after{
+  content:"";
+  position:absolute;
+  left:0; right:0;
+  height:3px;
+  background:#0f6fff;
+}
+.row-item.drop-top::after{ top:0; }
+.row-item.drop-bottom::after{ bottom:0; }
+
 .pos{
   font-weight: 800;
   font-size: 28px;
   color: #243244;
   display:flex; gap:10px; align-items:center; justify-content:flex-start;
+  cursor: grab; user-select: none;
 }
+.pos.dragging{ opacity:.6; cursor: grabbing; }
 
 .team{
   display:flex; align-items:center; gap:18px;
-  min-width: 0; /* dla ellipsis nazwy */
+  min-width: 0;
 }
 .logo{
   width: 64px; height:64px; object-fit: contain;
@@ -194,7 +207,7 @@ body{
 
 /* Przyciski wiersza – w TEJ SAMEJ LINII (na końcu kolumny Drużyna, przed Pkt) */
 .row-actions{
-  margin-left: auto;       /* dosuń do prawej krawędzi kolumny drużyny */
+  margin-left: auto;
   display:flex; gap:6px;
   opacity:.0; transition: .15s opacity;
 }
@@ -234,15 +247,25 @@ body{
 .db-badge{
   width: 26px; height: 26px; border-radius: 6px;
   background: color-mix(in oklab, var(--clr, #2b67ff) 30%, #0b1222);
-  color: #cfe2ff; display:flex; align-items:center; justify-content:center;
+  color: #cfe2ff;
+  display:flex; align-items:center; justify-content:center;
   font-weight: 800; font-size: 12px; letter-spacing: .3px;
 }
 .db-name{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .db-tags{
-  margin-left: auto;     /* dociśnij emotki na prawą krawędź kafelka */
+  margin-left: auto;
   font-size: 16px;
   opacity: .9;
 }
+
+/* Filtr tagów */
+.tag-filter{ display:flex; gap:8px; margin: 6px 0 8px; flex-wrap: wrap; }
+.tag-pill{
+  background:#0b1222; border:1px solid #223055; color:#e5ecf8;
+  border-radius:999px; padding:6px 12px; cursor:pointer; font-weight:700;
+}
+.tag-pill.active{ border-color:#0f6fff; background:#11254a; }
+.tag-pill.clear{ border-style: dashed; font-weight:600; }
 
 /* Stopka całej strony (poza obrazem) */
 .site-footer{
