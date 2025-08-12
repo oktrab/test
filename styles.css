@@ -84,6 +84,12 @@ body{
 .stage.exporting .row-item.selected{ outline: none !important; }
 .stage.exporting #rows{ overflow: hidden !important; }
 
+/* tryb export-all na żywym stage (dla długiego JPG) */
+.stage.export-all #rows{
+  overflow: visible !important;
+  grid-auto-rows: var(--rowH) !important;
+}
+
 /* BOARD */
 .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
 .title{ font-weight: 800; font-size: 38px; color:#10243a; }

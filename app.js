@@ -62,7 +62,7 @@ function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'
 function abbr(name){ const parts=name.trim().split(/\s+/); return parts.map(p=>p[0]).join('').slice(0,3).toUpperCase(); }
 function colorFor(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; }
 
-/* ---------- SortableJS (drag&drop kolejności) ---------- */
+// SortableJS (drag&drop kolejności)
 function initDnD(){
   if (rowsSortable) rowsSortable.destroy();
   rowsSortable = new Sortable(rowsEl, {
@@ -80,7 +80,7 @@ function initDnD(){
         if (evt.oldIndex < selectedRowIndex && evt.newIndex >= selectedRowIndex) selectedRowIndex -= 1;
         else if (evt.oldIndex > selectedRowIndex && evt.newIndex <= selectedRowIndex) selectedRowIndex += 1;
       }
-      render(); // po zmianie kolejności odśwież rzędy i bazę
+      render();
     }
   });
 }
@@ -192,7 +192,7 @@ function render(){
       teams[i].name = item.name;
       setAutoLogo(img, teams[i]);
       acBox.style.display='none';
-      renderDbList();              // ← odśwież bazę natychmiast
+      renderDbList();              // klucz: odśwież bazę od razu
       setTimeout(()=> nameEl.blur(), 0);
     }
     function showAC(){
@@ -225,7 +225,7 @@ function render(){
       if (!newName){
         teams[i].name = prevName;
         nameEl.textContent = prevName;
-        renderDbList();            // ← odśwież bazę (wrócił stary klub)
+        renderDbList();
         return;
       }
       if (isNameTaken(newName, i)){
@@ -234,10 +234,10 @@ function render(){
         teams[i].name = prevName;
         nameEl.textContent = prevName;
         setAutoLogo(img, teams[i]);
-        renderDbList();            // ← duplikat: przywrót i odśwież bazę
+        renderDbList();
       }else{
         teams[i].name = newName;
-        renderDbList();            // ← zmiana nazwy: odśwież bazę
+        renderDbList();
       }
     });
 
@@ -282,7 +282,7 @@ function render(){
   updateDbButtons();
 
   // KLUCZ: po każdej zmianie tabeli odśwież bazę (wygaszanie/odblokowanie)
-  renderDbList();
+  requestAnimationFrame(renderDbList);
 }
 
 /* ---------- Panel – stany przycisków ---------- */
@@ -301,18 +301,23 @@ function updateDbButtons(){
 
 /* ---------- Baza klubów – lista + tagi + filtr + drag to table ---------- */
 function renderDbList(){
+  // zachowaj selekcję po nazwie
+  const prevSelName = (dbFiltered[dbSelectedIdx] && dbFiltered[dbSelectedIdx].name) || null;
+
   const q = stripAccents(dbSearchEl.value.trim());
-  dbFiltered = dbTeams
+  const filtered = dbTeams
     .filter(t => !q || stripAccents(t.name).includes(q))
     .filter(t => {
       if (!selectedTag) return true;
       const emotes = getEmotesFromTags(t.tags);
       return emotes.includes(selectedTag);
-    })
-    .slice(0, 200);
+    });
+
+  dbFiltered = filtered;
+  dbSelectedIdx = prevSelName ? dbFiltered.findIndex(t => t.name === prevSelName) : -1;
 
   dbListEl.innerHTML = '';
-  dbFiltered.forEach((t, idx) => {
+  dbFiltered.slice(0, 200).forEach((t, idx) => {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'db-item' + (idx===dbSelectedIdx ? ' selected' : '');
@@ -390,14 +395,11 @@ rowsEl.addEventListener('drop', (e)=>{
   if (idx < 0) return;
 
   const existsIdx = findTeamIndexByName(name);
-  if (existsIdx !== -1 && existsIdx !== idx){
-    // klub już w tabeli w innym miejscu – ignoruj
-    return;
-  }
+  if (existsIdx !== -1 && existsIdx !== idx){ return; }
   if (normalizeName(teams[idx].name) === normalizeName(name)) return;
 
   teams[idx].name = name;
-  render();           // ← render() na końcu i tak wywoła renderDbList()
+  render(); // render -> requestAnimationFrame(renderDbList)
 });
 
 /* ---------- Ładowanie bazy z JSON (z cache-bust i komunikatem błędu) ---------- */
@@ -410,21 +412,17 @@ async function loadDb(){
     const res = await fetch(`${DB_URL}?cb=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
-    let arr;
-    try{ arr = JSON.parse(text); }
+    let arr; try{ arr = JSON.parse(text); }
     catch(parseErr){ console.error('JSON parse error:', parseErr, text); throw new Error('niepoprawny JSON (sprawdź przecinki i UTF‑8)'); }
 
     dbTeams = (Array.isArray(arr) ? arr : []).map(x => {
       if (typeof x === 'string') return { name: x, tags: [] };
       return { name: x?.name || '', tags: x?.tags ?? x?.tag ?? [] };
     }).filter(t => t.name);
-
     hideErr();
   }catch(e){
     console.warn('Ładowanie kluby.json nie powiodło się:', e);
     showErr(e.message || 'nieznany błąd');
-
-    // fallback – żeby UI działało dalej
     const base = defaultTeams.map(t => ({ name: t.name, tags: [] }));
     const extras = [
       "Areniscas Cadin","Górskie Piaskówki","Groklin Cedynia","Jeziorak Tar",
@@ -468,29 +466,34 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   }
 });
 
-// 2) Eksport wszystkich wierszy – długi obraz bez suwaków
+// 2) Eksport wszystkich wierszy – na żywym stage (bez klona)
 document.getElementById('btnExportAll').addEventListener('click', async ()=>{
   const stage = document.getElementById('stage');
-  const clone = stage.cloneNode(true);
-  clone.classList.add('exporting');
-  clone.style.height = 'auto';
-  const rowsClone = clone.querySelector('#rows');
-  if (rowsClone){
-    rowsClone.classList.remove('scroll');
-    rowsClone.style.overflow = 'visible';
-    rowsClone.style.gridAutoRows = getComputedStyle(document.documentElement).getPropertyValue('--rowH') || '86px';
-  }
-  clone.style.position = 'absolute'; clone.style.left = '-99999px'; clone.style.top = '0';
-  document.body.appendChild(clone);
-  await waitForImages(clone);
+  const rows = document.getElementById('rows');
+
+  // zapamiętaj stan
+  const prevStageH = stage.style.height;
+  const prevRowsOverflow = rows.style.overflow;
+  const prevRowsAutoRows = rows.style.gridAutoRows;
+  const hadScroll = rows.classList.contains('scroll');
+
+  // przełącz w tryb export-all
+  stage.classList.add('export-all','exporting');
+  stage.style.height = 'auto';
+  rows.classList.remove('scroll');
+  rows.style.overflow = 'visible';
+  rows.style.gridAutoRows = getComputedStyle(document.documentElement).getPropertyValue('--rowH') || '86px';
+
+  await waitForImages(stage);
   await new Promise(r => requestAnimationFrame(r));
+
   try{
-    const rect = clone.getBoundingClientRect();
-    const dataUrl = await htmlToImage.toJpeg(clone, {
+    const rect = stage.getBoundingClientRect();
+    const dataUrl = await htmlToImage.toJpeg(stage, {
       quality: 0.95,
       backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#f2f6fb',
       width: Math.round(rect.width),
-      height: Math.round(rect.height),
+      height: Math.round(stage.scrollHeight),   // pełna wysokość
       pixelRatio: 1,
       cacheBust: true,
       imagePlaceholder: PLACEHOLDER_SVG
@@ -500,7 +503,12 @@ document.getElementById('btnExportAll').addEventListener('click', async ()=>{
     console.error(err);
     alert('Nie udało się wygenerować długiego JPG. Spróbuj odświeżyć stronę.');
   }finally{
-    clone.remove();
+    // przywróć stan
+    stage.classList.remove('export-all','exporting');
+    stage.style.height = prevStageH || '';
+    if (hadScroll) rows.classList.add('scroll');
+    rows.style.overflow = prevRowsOverflow || '';
+    rows.style.gridAutoRows = prevRowsAutoRows || '';
   }
 });
 
@@ -515,14 +523,14 @@ dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{
   const c = dbFiltered[dbSelectedIdx]; if(!c) return;
   if (findTeamIndexByName(c.name) !== -1){ alert('Ta drużyna już jest w tabeli.'); return; }
-  teams.push({ name: c.name, pts: 0 }); render(); // render() odświeży też bazę
+  teams.push({ name: c.name, pts: 0 }); render();
 });
 btnDbReplace.addEventListener('click', ()=>{
   const c = dbFiltered[dbSelectedIdx]; if (selectedRowIndex===-1 || !c) return;
   const existsIdx = findTeamIndexByName(c.name);
   if (existsIdx !== -1 && existsIdx !== selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; }
   teams[selectedRowIndex] = { name: c.name, pts: teams[selectedRowIndex].pts || 0 };
-  render(); // i odśwież bazę
+  render();
 });
 
 /* ---------- Start ---------- */
