@@ -29,28 +29,21 @@ let dbTeams = [];        // {name, tags?[]} z kluby.json
 let dbFiltered = [];
 let dbSelectedIdx = -1;
 let selectedRowIndex = -1;
-let dragIndex = -1;      // dla DnD
+let rowsSortable = null;
 const tagFilter = new Set(); // '⚽' / '🏀'
 
-// Elementy DOM
+// DOM
 const rowsEl = document.getElementById('rows');
 const inPromotion = document.getElementById('inPromotion');
 const inReleg = document.getElementById('inReleg');
-
 const dbSearchEl = document.getElementById('dbSearch');
 const dbListEl = document.getElementById('dbList');
 const btnDbAdd = document.getElementById('btnDbAdd');
 const btnDbReplace = document.getElementById('btnDbReplace');
 
 // Utils
-function buildLogoUrl(name){
-  const file = encodeURIComponent(name.trim());
-  return `${LOGO_PATH}/${file}.png`;
-}
-function setAutoLogo(img, team){
-  img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_SVG; };
-  img.src = buildLogoUrl(team.name);
-}
+function buildLogoUrl(name){ return `${LOGO_PATH}/${encodeURIComponent(name.trim())}.png`; }
+function setAutoLogo(img, team){ img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_SVG; }; img.src = buildLogoUrl(team.name); }
 function classForIndex(idx){
   const promo = Math.max(0, +inPromotion.value|0);
   const releg = Math.max(0, +inReleg.value|0);
@@ -60,50 +53,42 @@ function classForIndex(idx){
   if (idx >= teams.length - releg) return 'releg';
   return '';
 }
-function placeCaretAtEnd(el){
-  const range = document.createRange();
-  const sel = window.getSelection();
-  range.selectNodeContents(el);
-  range.collapse(false);
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
+function placeCaretAtEnd(el){ const r=document.createRange(), s=window.getSelection(); r.selectNodeContents(el); r.collapse(false); s.removeAllRanges(); s.addRange(r); }
 function setSelectedRow(i){
   selectedRowIndex = i;
-  document.querySelectorAll('#rows .row-item').forEach((el, idx)=>{
-    el.classList.toggle('selected', idx === i);
-  });
+  document.querySelectorAll('#rows .row-item').forEach((el, idx)=> el.classList.toggle('selected', idx === i));
   updateDbButtons();
 }
-function findTeamIndexByName(name){
-  const n = name.trim().toLowerCase();
-  return teams.findIndex(t => t.name.trim().toLowerCase() === n);
-}
-function stripAccents(s){
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-}
-function abbr(name){
-  const parts = name.trim().split(/\s+/);
-  return parts.map(p => p[0]).join('').slice(0,3).toUpperCase();
-}
-function colorFor(name){
-  let h = 0; for (const ch of name) h = (h*31 + ch.charCodeAt(0)) % 360;
-  return `hsl(${h} 70% 45%)`;
+function findTeamIndexByName(name){ const n = name.trim().toLowerCase(); return teams.findIndex(t => t.name.trim().toLowerCase() === n); }
+function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+function abbr(name){ const parts = name.trim().split(/\s+/); return parts.map(p => p[0]).join('').slice(0,3).toUpperCase(); }
+function colorFor(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; }
+
+// SortableJS init/destroy
+function initDnD(){
+  if (rowsSortable) rowsSortable.destroy();
+  rowsSortable = new Sortable(rowsEl, {
+    animation: 150,
+    handle: '.pos',
+    draggable: '.row-item',
+    ghostClass: 'drag-ghost',
+    chosenClass: 'drag-chosen',
+    onEnd: (evt)=>{
+      if (evt.oldIndex === evt.newIndex || evt.oldIndex == null || evt.newIndex == null) return;
+      const item = teams.splice(evt.oldIndex, 1)[0];
+      teams.splice(evt.newIndex, 0, item);
+      // aktualizuj zaznaczenie
+      if (selectedRowIndex === evt.oldIndex) selectedRowIndex = evt.newIndex;
+      else if (selectedRowIndex !== -1){
+        if (evt.oldIndex < selectedRowIndex && evt.newIndex >= selectedRowIndex) selectedRowIndex -= 1;
+        else if (evt.oldIndex > selectedRowIndex && evt.newIndex <= selectedRowIndex) selectedRowIndex += 1;
+      }
+      render(); // przerysuj pozycje
+    }
+  });
 }
 
-/* ---------- Drag & Drop (uchwyt = kolumna Poz.) ---------- */
-function clearDropHints(){
-  document.querySelectorAll('.row-item.drop-top, .row-item.drop-bottom')
-    .forEach(el => { el.classList.remove('drop-top','drop-bottom'); });
-}
-function moveItem(arr, from, to){
-  if (from === to) return;
-  const item = arr.splice(from, 1)[0];
-  if (to > from) to -= 1;
-  arr.splice(to, 0, item);
-}
-
-/* ---------- Render tabeli ---------- */
+/* ------- Render tabeli ------- */
 function render(){
   rowsEl.innerHTML = '';
   teams.forEach((t, i) => {
@@ -123,101 +108,46 @@ function render(){
       <div class="points"><span class="pts" contenteditable="true">${t.pts}</span></div>
     `;
 
-    // wybór wiersza (nie koliduje z edycją)
     row.addEventListener('mousedown', (ev)=>{
       if (ev.target.closest('.name, .pts, .icon-btn')) return;
       setSelectedRow(i);
     });
 
-    // logo
-    const img = row.querySelector('img.logo');
-    setAutoLogo(img, t);
+    const img = row.querySelector('img.logo'); setAutoLogo(img, t);
 
-    // edycja nazwy
     const nameEl = row.querySelector('.name');
-    nameEl.addEventListener('input', e=>{
-      teams[i].name = e.currentTarget.textContent.trim();
-      setAutoLogo(img, teams[i]);
-    });
+    nameEl.addEventListener('input', e=>{ teams[i].name = e.currentTarget.textContent.trim(); setAutoLogo(img, teams[i]); });
 
-    // edycja punktów
     const ptsEl = row.querySelector('.pts');
-    ptsEl.addEventListener('focus', e=>{
-      const txt = e.currentTarget.textContent.trim();
-      if (txt === '0') e.currentTarget.textContent = '';
-      placeCaretAtEnd(e.currentTarget);
-    });
+    ptsEl.addEventListener('focus', e=>{ if (e.currentTarget.textContent.trim()==='0') e.currentTarget.textContent=''; placeCaretAtEnd(e.currentTarget); });
     ptsEl.addEventListener('input', e=>{
-      const v = e.currentTarget.textContent.replace(/[^\d-]/g,'');
-      e.currentTarget.textContent = v;
-      teams[i].pts = Number(v || 0);
-      placeCaretAtEnd(e.currentTarget);
+      const v=e.currentTarget.textContent.replace(/[^\d-]/g,'');
+      e.currentTarget.textContent=v; teams[i].pts=Number(v||0); placeCaretAtEnd(e.currentTarget);
     });
     ptsEl.addEventListener('blur', e=>{
-      let v = e.currentTarget.textContent.replace(/[^\d-]/g,'');
-      if (v === '') v = '0';
-      e.currentTarget.textContent = v;
-      teams[i].pts = Number(v);
+      let v=e.currentTarget.textContent.replace(/[^\d-]/g,''); if(v==='') v='0';
+      e.currentTarget.textContent=v; teams[i].pts=Number(v);
     });
 
-    // przyciski akcji
     row.querySelectorAll('.row-actions .icon-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const act = btn.dataset.act;
-        if (act === 'up' && i>0){ const tmp=teams[i-1]; teams[i-1]=teams[i]; teams[i]=tmp; render(); }
-        if (act === 'down' && i<teams.length-1){ const tmp=teams[i+1]; teams[i+1]=teams[i]; teams[i]=tmp; render(); }
-        if (act === 'del'){ teams.splice(i,1); if (selectedRowIndex===i) selectedRowIndex=-1; render(); }
+        if (act==='up' && i>0){ const tmp=teams[i-1]; teams[i-1]=teams[i]; teams[i]=tmp; render(); }
+        if (act==='down' && i<teams.length-1){ const tmp=teams[i+1]; teams[i+1]=teams[i]; teams[i]=tmp; render(); }
+        if (act==='del'){ teams.splice(i,1); if (selectedRowIndex===i) selectedRowIndex=-1; render(); }
         updateDbButtons();
       });
-    });
-
-    // Drag handle = kolumna Poz.
-    const handle = row.querySelector('.pos');
-    handle.setAttribute('draggable','true');
-    handle.addEventListener('dragstart', (e)=>{
-      dragIndex = i;
-      handle.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
-    });
-    handle.addEventListener('dragend', ()=>{
-      handle.classList.remove('dragging');
-      clearDropHints();
-      dragIndex = -1;
-    });
-
-    // Drop targets = każdy wiersz
-    row.addEventListener('dragover', (e)=>{
-      if (dragIndex === -1) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      clearDropHints();
-      const r = row.getBoundingClientRect();
-      const before = e.clientY < r.top + r.height/2;
-      row.classList.add(before ? 'drop-top' : 'drop-bottom');
-    });
-    row.addEventListener('dragleave', clearDropHints);
-    row.addEventListener('drop', (e)=>{
-      if (dragIndex === -1) return;
-      e.preventDefault();
-      const r = row.getBoundingClientRect();
-      const before = e.clientY < r.top + r.height/2;
-      let to = i + (before ? 0 : 1);
-      moveItem(teams, dragIndex, to);
-      clearDropHints();
-      dragIndex = -1;
-      render();
     });
 
     rowsEl.appendChild(row);
   });
 
-  // 12 wierszy bez scrolla; >12 przewijanie
   rowsEl.classList.toggle('scroll', teams.length > 12);
+  initDnD();      // ważne: po każdym renderze
   updateDbButtons();
 }
 
-/* ---------- Panel – stany przycisków ---------- */
+/* ------- Panel – stany przycisków ------- */
 function updateDbButtons(){
   const hasDbSel = dbSelectedIdx !== -1 && dbFiltered[dbSelectedIdx];
   const selectedName = hasDbSel ? dbFiltered[dbSelectedIdx].name : null;
@@ -226,27 +156,20 @@ function updateDbButtons(){
   btnDbAdd.disabled = !hasDbSel || existsIdx !== -1;
   btnDbAdd.title = (existsIdx !== -1) ? 'Ta drużyna już jest w tabeli' : '';
 
-  const replacingConflict = hasDbSel && selectedRowIndex !== -1 && (existsIdx !== -1 && existsIdx !== selectedRowIndex);
-  btnDbReplace.disabled = !(hasDbSel && selectedRowIndex !== -1) || replacingConflict;
-  btnDbReplace.title = replacingConflict ? 'Ta drużyna już jest w tabeli' : '';
+  const conflict = hasDbSel && selectedRowIndex !== -1 && (existsIdx !== -1 && existsIdx !== selectedRowIndex);
+  btnDbReplace.disabled = !(hasDbSel && selectedRowIndex !== -1) || conflict;
+  btnDbReplace.title = conflict ? 'Ta drużyna już jest w tabeli.' : '';
 }
 
-/* ---------- Baza klubów – kafelki z tagami + filtr ---------- */
+/* ------- Baza klubów – kafelki + tagi + filtr ------- */
 function getEmotesFromTags(raw){
-  let arr = [];
-  if (Array.isArray(raw)) arr = raw;
-  else if (typeof raw === 'string') arr = raw.split(/[,;\s]+/);
-  else if (raw && typeof raw.tag === 'string') arr = [raw.tag];
-  return arr
-    .map(x => (x || '').toString().trim())
-    .filter(Boolean)
-    .map(x => {
-      const lx = x.toLowerCase();
-      if (x === '⚽' || lx === 'pilka' || lx === 'piłka' || lx === 'soccer' || lx === 'football') return '⚽';
-      if (x === '🏀' || lx === 'kosz' || lx === 'basket' || lx === 'basketball') return '🏀';
-      return null;
-    })
-    .filter(Boolean);
+  let arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
+  return arr.map(x=>(x||'').toString().trim()).filter(Boolean).map(x=>{
+    const lx=x.toLowerCase();
+    if (x==='⚽'||lx==='piłka'||lx==='pilka'||lx==='soccer'||lx==='football') return '⚽';
+    if (x==='🏀'||lx==='kosz'||lx==='basket'||lx==='basketball') return '🏀';
+    return null;
+  }).filter(Boolean);
 }
 function renderDbList(){
   const q = stripAccents(dbSearchEl.value.trim());
@@ -264,11 +187,11 @@ function renderDbList(){
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'db-item' + (idx===dbSelectedIdx ? ' selected' : '');
-    item.style.setProperty('--clr', colorFor(t.name));
 
     const badge = document.createElement('span');
     badge.className = 'db-badge';
     badge.textContent = abbr(t.name);
+    badge.style.setProperty('--badge', colorFor(t.name)); // unikanie color-mix
 
     const label = document.createElement('span');
     label.className = 'db-name';
@@ -277,14 +200,9 @@ function renderDbList(){
     const tags = document.createElement('span');
     tags.className = 'db-tags';
     const emotes = getEmotesFromTags(t.tags);
-    if (emotes.length){
-      tags.textContent = emotes.join(' ');
-      tags.title = 'Dyscypliny: ' + emotes.join(' ');
-    }
+    if (emotes.length){ tags.textContent = emotes.join(' '); tags.title = 'Dyscypliny: ' + emotes.join(' '); }
 
-    item.appendChild(badge);
-    item.appendChild(label);
-    item.appendChild(tags);
+    item.appendChild(badge); item.appendChild(label); item.appendChild(tags);
 
     item.addEventListener('click', ()=>{
       dbSelectedIdx = idx;
@@ -311,7 +229,7 @@ document.querySelectorAll('#tagFilter .tag-pill').forEach(btn=>{
   });
 });
 
-/* ---------- Ładowanie bazy z JSON ---------- */
+/* ------- Ładowanie bazy z JSON ------- */
 async function loadDb(){
   try{
     const res = await fetch(DB_URL, { cache: 'no-store' });
@@ -333,7 +251,7 @@ async function loadDb(){
   renderDbList();
 }
 
-/* ---------- Eksport JPG 1920x1080 ---------- */
+/* ------- Eksport JPG ------- */
 function waitForImages(node){
   const imgs = Array.from(node.querySelectorAll('img'));
   return Promise.all(imgs.map(img => new Promise(res=>{
@@ -355,10 +273,7 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
       preferCSSPageSize: true, cacheBust: true,
       imagePlaceholder: PLACEHOLDER_SVG
     });
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `tabela_${new Date().toISOString().slice(0,10)}.jpg`;
-    a.click();
+    const a = document.createElement('a'); a.href = dataUrl; a.download = `tabela_${new Date().toISOString().slice(0,10)}.jpg`; a.click();
   }catch(err){
     console.error(err);
     alert('Jeśli w JPG nie ma herbów, uruchom stronę przez serwer HTTP (np. python -m http.server).');
@@ -367,43 +282,26 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   }
 });
 
-/* ---------- Panel: przyciski ---------- */
-document.getElementById('btnAdd').addEventListener('click', ()=>{
-  teams.push({ name: "Nowa drużyna", pts: 0 });
-  render();
-});
-document.getElementById('btnReset').addEventListener('click', ()=>{
-  teams = JSON.parse(JSON.stringify(defaultTeams));
-  selectedRowIndex = -1;
-  render();
-});
+/* ------- Panel: przyciski ------- */
+document.getElementById('btnAdd').addEventListener('click', ()=>{ teams.push({ name: "Nowa drużyna", pts: 0 }); render(); });
+document.getElementById('btnReset').addEventListener('click', ()=>{ teams = JSON.parse(JSON.stringify(defaultTeams)); selectedRowIndex = -1; render(); });
 inPromotion.addEventListener('change', render);
 inReleg.addEventListener('change', render);
 
-/* ---------- Baza klubów – akcje ---------- */
+/* ------- Baza klubów – akcje ------- */
 dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{
-  const chosen = dbFiltered[dbSelectedIdx];
-  if (!chosen) return;
-  if (findTeamIndexByName(chosen.name) !== -1){
-    alert('Ta drużyna już jest w tabeli.');
-    return;
-  }
-  teams.push({ name: chosen.name, pts: 0 });
-  render();
+  const c = dbFiltered[dbSelectedIdx]; if(!c) return;
+  if (findTeamIndexByName(c.name) !== -1){ alert('Ta drużyna już jest w tabeli.'); return; }
+  teams.push({ name: c.name, pts: 0 }); render();
 });
 btnDbReplace.addEventListener('click', ()=>{
-  const chosen = dbFiltered[dbSelectedIdx];
-  if (selectedRowIndex === -1 || !chosen) return;
-  const existsIdx = findTeamIndexByName(chosen.name);
-  if (existsIdx !== -1 && existsIdx !== selectedRowIndex){
-    alert('Ta drużyna już jest w tabeli.');
-    return;
-  }
-  teams[selectedRowIndex] = { name: chosen.name, pts: teams[selectedRowIndex].pts || 0 };
-  render();
+  const c = dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1 || !c) return;
+  const existsIdx = findTeamIndexByName(c.name);
+  if (existsIdx !== -1 && existsIdx !== selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; }
+  teams[selectedRowIndex] = { name: c.name, pts: teams[selectedRowIndex].pts || 0 }; render();
 });
 
-/* ---------- Start ---------- */
+/* ------- Start ------- */
 render();
 loadDb();
