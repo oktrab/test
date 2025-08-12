@@ -29,7 +29,7 @@ let dbTeams = [];          // {name, tags?[]} z kluby.json
 let dbFiltered = [];
 let dbSelectedIdx = -1;
 let selectedRowIndex = -1;
-let rowsSortable = null;   // SortableJS instancja
+let rowsSortable = null;   // SortableJS
 let selectedTag = null;    // '⚽' | '🏀' | null
 
 // DOM
@@ -62,7 +62,15 @@ function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'
 function abbr(name){ const parts=name.trim().split(/\s+/); return parts.map(p=>p[0]).join('').slice(0,3).toUpperCase(); }
 function colorFor(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; }
 
-// SortableJS (drag&drop kolejności)
+// Pomocnicze: wykryj, czy drag pochodzi z Bazy klubów (nasz własny typ)
+function isClubDrag(e){
+  const types = e.dataTransfer && e.dataTransfer.types;
+  if (!types) return false;
+  const arr = Array.from(types);
+  return arr.includes('text/club') || arr.includes('application/x-club');
+}
+
+/* ---------- SortableJS (drag&drop kolejności) ---------- */
 function initDnD(){
   if (rowsSortable) rowsSortable.destroy();
   rowsSortable = new Sortable(rowsEl, {
@@ -192,7 +200,7 @@ function render(){
       teams[i].name = item.name;
       setAutoLogo(img, teams[i]);
       acBox.style.display='none';
-      renderDbList();              // klucz: odśwież bazę od razu
+      renderDbList();
       setTimeout(()=> nameEl.blur(), 0);
     }
     function showAC(){
@@ -274,14 +282,9 @@ function render(){
     rowsEl.appendChild(row);
   });
 
-  // 12 bez scrolla; >12 przewijanie
   rowsEl.classList.toggle('scroll', teams.length > 12);
-
-  // DnD kolejności
   initDnD();
   updateDbButtons();
-
-  // KLUCZ: po każdej zmianie tabeli odśwież bazę (wygaszanie/odblokowanie)
   requestAnimationFrame(renderDbList);
 }
 
@@ -301,7 +304,6 @@ function updateDbButtons(){
 
 /* ---------- Baza klubów – lista + tagi + filtr + drag to table ---------- */
 function renderDbList(){
-  // zachowaj selekcję po nazwie
   const prevSelName = (dbFiltered[dbSelectedIdx] && dbFiltered[dbSelectedIdx].name) || null;
 
   const q = stripAccents(dbSearchEl.value.trim());
@@ -329,23 +331,22 @@ function renderDbList(){
     const emotes = getEmotesFromTags(t.tags);
     if (emotes.length){ tags.textContent = emotes.join(' '); tags.title = 'Dyscypliny: ' + emotes.join(' '); }
 
-    // Zablokuj drag, jeśli klub już jest w tabeli
     const existsIdx = findTeamIndexByName(t.name);
     const disabled = existsIdx !== -1;
     item.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     item.draggable = !disabled;
 
-    // zaznaczanie
     item.addEventListener('click', ()=>{
       dbSelectedIdx = idx;
       renderDbList();
       updateDbButtons();
     });
 
-    // drag z bazy na tabelę
+    // Drag z bazy – ustaw typy niestandardowe (rozróżnienie od Sortable)
     item.addEventListener('dragstart', (e)=>{
       if (disabled){ e.preventDefault(); return; }
-      e.dataTransfer.setData('text/plain', t.name);
+      e.dataTransfer.setData('text/club', t.name);
+      e.dataTransfer.setData('application/x-club', t.name);
       e.dataTransfer.effectAllowed = 'copy';
     });
 
@@ -376,7 +377,7 @@ updateTagPillsUI();
 
 /* ---------- Drop z bazy na tabelę (podmiana wiersza) ---------- */
 rowsEl.addEventListener('dragover', (e)=>{
-  if (!e.dataTransfer) return;
+  if (!isClubDrag(e)) return;     // tylko nasze dragi z bazy
   e.preventDefault();
   const row = e.target.closest('.row-item');
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
@@ -386,8 +387,9 @@ rowsEl.addEventListener('dragleave', ()=>{
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
 });
 rowsEl.addEventListener('drop', (e)=>{
+  if (!isClubDrag(e)) return;     // ignoruj dropy SortableJS
   e.preventDefault();
-  const name = e.dataTransfer.getData('text/plain');
+  const name = e.dataTransfer.getData('text/club') || e.dataTransfer.getData('application/x-club');
   const row = e.target.closest('.row-item');
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
   if (!name || !row) return;
@@ -399,10 +401,10 @@ rowsEl.addEventListener('drop', (e)=>{
   if (normalizeName(teams[idx].name) === normalizeName(name)) return;
 
   teams[idx].name = name;
-  render(); // render -> requestAnimationFrame(renderDbList)
+  render(); // odświeża też bazę
 });
 
-/* ---------- Ładowanie bazy z JSON (z cache-bust i komunikatem błędu) ---------- */
+/* ---------- Ładowanie bazy z JSON (cache-bust + komunikat) ---------- */
 async function loadDb(){
   const errBox = document.getElementById('dbError');
   const showErr = (msg) => { if (errBox){ errBox.style.display='block'; errBox.textContent = 'Błąd ładowania bazy: ' + msg + ' (używam listy zapasowej)'; } };
@@ -466,18 +468,16 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   }
 });
 
-// 2) Eksport wszystkich wierszy – na żywym stage (bez klona)
+// 2) Eksport wszystkich wierszy – tryb na żywym stage
 document.getElementById('btnExportAll').addEventListener('click', async ()=>{
   const stage = document.getElementById('stage');
   const rows = document.getElementById('rows');
 
-  // zapamiętaj stan
   const prevStageH = stage.style.height;
   const prevRowsOverflow = rows.style.overflow;
   const prevRowsAutoRows = rows.style.gridAutoRows;
   const hadScroll = rows.classList.contains('scroll');
 
-  // przełącz w tryb export-all
   stage.classList.add('export-all','exporting');
   stage.style.height = 'auto';
   rows.classList.remove('scroll');
@@ -493,7 +493,7 @@ document.getElementById('btnExportAll').addEventListener('click', async ()=>{
       quality: 0.95,
       backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#f2f6fb',
       width: Math.round(rect.width),
-      height: Math.round(stage.scrollHeight),   // pełna wysokość
+      height: Math.round(stage.scrollHeight),
       pixelRatio: 1,
       cacheBust: true,
       imagePlaceholder: PLACEHOLDER_SVG
@@ -503,7 +503,6 @@ document.getElementById('btnExportAll').addEventListener('click', async ()=>{
     console.error(err);
     alert('Nie udało się wygenerować długiego JPG. Spróbuj odświeżyć stronę.');
   }finally{
-    // przywróć stan
     stage.classList.remove('export-all','exporting');
     stage.style.height = prevStageH || '';
     if (hadScroll) rows.classList.add('scroll');
