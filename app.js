@@ -62,7 +62,7 @@ function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'
 function abbr(name){ const parts=name.trim().split(/\s+/); return parts.map(p=>p[0]).join('').slice(0,3).toUpperCase(); }
 function colorFor(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; }
 
-// SortableJS (drag&drop w tabeli)
+/* ---------- SortableJS (drag&drop kolejności) ---------- */
 function initDnD(){
   if (rowsSortable) rowsSortable.destroy();
   rowsSortable = new Sortable(rowsEl, {
@@ -292,7 +292,7 @@ function updateDbButtons(){
   btnDbReplace.title = conflict ? 'Ta drużyna już jest w tabeli.' : '';
 }
 
-/* ---------- Baza klubów – kafelki + tagi + filtr (single-select) ---------- */
+/* ---------- Baza klubów – lista + tagi + filtr + drag to table ---------- */
 function renderDbList(){
   const q = stripAccents(dbSearchEl.value.trim());
   dbFiltered = dbTeams
@@ -311,39 +311,32 @@ function renderDbList(){
     item.className = 'db-item' + (idx===dbSelectedIdx ? ' selected' : '');
     item.style.setProperty('--badge', colorFor(t.name));
 
-    const badge = document.createElement('span');
-    badge.className = 'db-badge';
-    badge.textContent = abbr(t.name);
-
-    const label = document.createElement('span');
-    label.className = 'db-name';
-    label.textContent = t.name;
-
-    const tags = document.createElement('span');
-    tags.className = 'db-tags';
+    const badge = document.createElement('span'); badge.className = 'db-badge'; badge.textContent = abbr(t.name);
+    const label = document.createElement('span'); label.className = 'db-name'; label.textContent = t.name;
+    const tags = document.createElement('span'); tags.className = 'db-tags';
     const emotes = getEmotesFromTags(t.tags);
     if (emotes.length){ tags.textContent = emotes.join(' '); tags.title = 'Dyscypliny: ' + emotes.join(' '); }
 
-    // Zablokuj drag, jeśli klub już jest w tabeli
     const existsIdx = findTeamIndexByName(t.name);
     const disabled = existsIdx !== -1;
     item.setAttribute('aria-disabled', disabled ? 'true' : 'false');
     item.draggable = !disabled;
 
-    // Zaznaczanie
+    // zaznaczanie
     item.addEventListener('click', ()=>{
       dbSelectedIdx = idx;
       renderDbList();
       updateDbButtons();
     });
 
-    // Drag&Drop z bazy na tabelę (podmiana wiersza)
+    // drag z bazy na tabelę
     item.addEventListener('dragstart', (e)=>{
       if (disabled){ e.preventDefault(); return; }
       e.dataTransfer.setData('text/plain', t.name);
       e.dataTransfer.effectAllowed = 'copy';
     });
 
+    item.appendChild(badge); item.appendChild(label); item.appendChild(tags);
     dbListEl.appendChild(item);
   });
   updateDbButtons();
@@ -368,9 +361,8 @@ document.querySelectorAll('#tagFilter .tag-pill').forEach(btn=>{
 });
 updateTagPillsUI();
 
-/* ---------- Obsługa drop z bazy na tabelę ---------- */
+/* ---------- Drop z bazy na tabelę (podmiana wiersza) ---------- */
 rowsEl.addEventListener('dragover', (e)=>{
-  // pozwól upuszczać kluby (text/plain)
   if (!e.dataTransfer) return;
   e.preventDefault();
   const row = e.target.closest('.row-item');
@@ -391,26 +383,40 @@ rowsEl.addEventListener('drop', (e)=>{
 
   const existsIdx = findTeamIndexByName(name);
   if (existsIdx !== -1 && existsIdx !== idx){
-    // Klub już jest w tabeli w innym miejscu – odrzuć
+    // klub już w tabeli w innym miejscu – ignoruj
     return;
   }
-  if (normalizeName(teams[idx].name) === normalizeName(name)) return; // bez zmian
+  if (normalizeName(teams[idx].name) === normalizeName(name)) return;
 
   teams[idx].name = name;
   render();
 });
 
-/* ---------- Ładowanie bazy z JSON ---------- */
+/* ---------- Ładowanie bazy z JSON (z cache-bust i komunikatem błędu) ---------- */
 async function loadDb(){
+  const errBox = document.getElementById('dbError');
+  const showErr = (msg) => { if (errBox){ errBox.style.display='block'; errBox.textContent = 'Błąd ładowania bazy: ' + msg + ' (używam listy zapasowej)'; } };
+  const hideErr = () => { if (errBox){ errBox.style.display='none'; errBox.textContent=''; } };
+
   try{
-    const res = await fetch(DB_URL, { cache: 'no-store' });
-    const arr = await res.json();
+    const res = await fetch(`${DB_URL}?cb=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    let arr;
+    try{ arr = JSON.parse(text); }
+    catch(parseErr){ console.error('JSON parse error:', parseErr, text); throw new Error('niepoprawny JSON (sprawdź przecinki i UTF‑8)'); }
+
     dbTeams = (Array.isArray(arr) ? arr : []).map(x => {
       if (typeof x === 'string') return { name: x, tags: [] };
       return { name: x?.name || '', tags: x?.tags ?? x?.tag ?? [] };
     }).filter(t => t.name);
+
+    hideErr();
   }catch(e){
-    // fallback – bez tagów
+    console.warn('Ładowanie kluby.json nie powiodło się:', e);
+    showErr(e.message || 'nieznany błąd');
+
+    // fallback – żeby UI działało dalej
     const base = defaultTeams.map(t => ({ name: t.name, tags: [] }));
     const extras = [
       "Areniscas Cadin","Górskie Piaskówki","Groklin Cedynia","Jeziorak Tar",
@@ -432,7 +438,7 @@ function waitForImages(node){
   })));
 }
 
-// 1) Eksport widoku 1920×1080 (z ukrytymi suwakami)
+// 1) Eksport 1920×1080 (widok, bez suwaków)
 document.getElementById('btnExport').addEventListener('click', async ()=>{
   const node = document.getElementById('stage');
   node.classList.add('exporting');
@@ -454,20 +460,18 @@ document.getElementById('btnExport').addEventListener('click', async ()=>{
   }
 });
 
-// 2) Eksport pełnej listy – bez suwaków, długi obraz (wysokość = wszystkie wiersze)
+// 2) Eksport wszystkich wierszy – długi obraz bez suwaków
 document.getElementById('btnExportAll').addEventListener('click', async ()=>{
   const stage = document.getElementById('stage');
   const clone = stage.cloneNode(true);
   clone.classList.add('exporting');
-  clone.style.height = 'auto';         // zdejmij sztywną wysokość
-  // W clone: usuń przewijanie i ustaw stałą wysokość wiersza
+  clone.style.height = 'auto';
   const rowsClone = clone.querySelector('#rows');
   if (rowsClone){
     rowsClone.classList.remove('scroll');
     rowsClone.style.overflow = 'visible';
     rowsClone.style.gridAutoRows = getComputedStyle(document.documentElement).getPropertyValue('--rowH') || '86px';
   }
-  // Umieść poza ekranem, aby się policzyły wymiary
   clone.style.position = 'absolute'; clone.style.left = '-99999px'; clone.style.top = '0';
   document.body.appendChild(clone);
   await waitForImages(clone);

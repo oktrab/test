@@ -32,9 +32,12 @@
       <hr class="sep">
 
       <h2>Baza klubów</h2>
-      <p class="muted">- Przeciągnij klub z listy i upuść na wiersz, żeby go podmienić. Kluby już użyte są zablokowane do przeciągania.<br>- Filtruj po tagach i dodawaj/zastępuj.</p>
+      <div id="dbError" class="db-error" style="display:none"></div>
+      <p class="muted">
+        - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić. Kluby już użyte są zablokowane do przeciągania.
+        <br>- Filtruj po tagach i dodawaj/zastępuj z przycisków.
+      </p>
 
-      <!-- Filtr tagów (single-select) -->
       <div class="tag-filter" id="tagFilter">
         <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
         <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
