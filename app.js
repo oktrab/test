@@ -29,7 +29,7 @@ let dbTeams = [];          // {name, tags?[]} z kluby.json
 let dbFiltered = [];
 let dbSelectedIdx = -1;
 let selectedRowIndex = -1;
-let rowsSortable = null;   // SortableJS
+let rowsSortable = null;   // SortableJS instancja
 let selectedTag = null;    // '⚽' | '🏀' | null
 
 // DOM
@@ -62,12 +62,22 @@ function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'
 function abbr(name){ const parts=name.trim().split(/\s+/); return parts.map(p=>p[0]).join('').slice(0,3).toUpperCase(); }
 function colorFor(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; }
 
-// Pomocnicze: wykryj, czy drag pochodzi z Bazy klubów (nasz własny typ)
+// Rozróżnienie dragów
 function isClubDrag(e){
   const types = e.dataTransfer && e.dataTransfer.types;
   if (!types) return false;
   const arr = Array.from(types);
   return arr.includes('text/club') || arr.includes('application/x-club');
+}
+function getClubNameFromDT(e){
+  const dt = e.dataTransfer;
+  if (!dt) return null;
+  let name = dt.getData('text/club') || dt.getData('application/x-club');
+  if (name) return name;
+  const plain = dt.getData('text/plain')?.trim();
+  if (!plain) return null;
+  const m = dbTeams.find(x => x?.name && x.name.toLowerCase() === plain.toLowerCase());
+  return m ? m.name : null;
 }
 
 /* ---------- SortableJS (drag&drop kolejności) ---------- */
@@ -342,11 +352,12 @@ function renderDbList(){
       updateDbButtons();
     });
 
-    // Drag z bazy – ustaw typy niestandardowe (rozróżnienie od Sortable)
+    // Drag z bazy – ustaw też text/plain dla kompatybilności
     item.addEventListener('dragstart', (e)=>{
       if (disabled){ e.preventDefault(); return; }
       e.dataTransfer.setData('text/club', t.name);
       e.dataTransfer.setData('application/x-club', t.name);
+      e.dataTransfer.setData('text/plain', t.name);
       e.dataTransfer.effectAllowed = 'copy';
     });
 
@@ -377,22 +388,21 @@ updateTagPillsUI();
 
 /* ---------- Drop z bazy na tabelę (podmiana wiersza) ---------- */
 rowsEl.addEventListener('dragover', (e)=>{
-  if (!isClubDrag(e)) return;     // tylko nasze dragi z bazy
+  // ZAWSZE pozwól na drop (żeby text/plain też działał), ale podświetlaj tylko przy klubach
   e.preventDefault();
   const row = e.target.closest('.row-item');
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
-  if (row) row.classList.add('db-over');
+  if (isClubDrag(e) && row) row.classList.add('db-over');
 });
 rowsEl.addEventListener('dragleave', ()=>{
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
 });
 rowsEl.addEventListener('drop', (e)=>{
-  if (!isClubDrag(e)) return;     // ignoruj dropy SortableJS
-  e.preventDefault();
-  const name = e.dataTransfer.getData('text/club') || e.dataTransfer.getData('application/x-club');
+  let name = getClubNameFromDT(e);
   const row = e.target.closest('.row-item');
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
   if (!name || !row) return;
+
   const idx = Array.from(rowsEl.children).indexOf(row);
   if (idx < 0) return;
 
@@ -401,7 +411,7 @@ rowsEl.addEventListener('drop', (e)=>{
   if (normalizeName(teams[idx].name) === normalizeName(name)) return;
 
   teams[idx].name = name;
-  render(); // odświeża też bazę
+  render();
 });
 
 /* ---------- Ładowanie bazy z JSON (cache-bust + komunikat) ---------- */
@@ -446,7 +456,7 @@ function waitForImages(node){
   })));
 }
 
-// 1) Eksport 1920×1080 (widok, bez suwaków)
+// 1) Eksport 1920×1080
 document.getElementById('btnExport').addEventListener('click', async ()=>{
   const node = document.getElementById('stage');
   node.classList.add('exporting');
