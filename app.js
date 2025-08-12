@@ -68,6 +68,11 @@ function placeCaretAtEnd(el){
   sel.removeAllRanges();
   sel.addRange(range);
 }
+function normalizeName(s){ return (s||'').trim().replace(/\s+/g,' ').toLowerCase(); }
+function isNameTaken(name, exceptIndex=-1){
+  const n = normalizeName(name);
+  return teams.some((t,i)=> i!==exceptIndex && normalizeName(t.name)===n && n!=='');
+}
 function setSelectedRow(i){
   selectedRowIndex = i;
   document.querySelectorAll('#rows .row-item').forEach((el, idx)=>{
@@ -76,8 +81,8 @@ function setSelectedRow(i){
   updateDbButtons();
 }
 function findTeamIndexByName(name){
-  const n = name.trim().toLowerCase();
-  return teams.findIndex(t => t.name.trim().toLowerCase() === n);
+  const n = normalizeName(name);
+  return teams.findIndex(t => normalizeName(t.name) === n);
 }
 function stripAccents(s){
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -114,6 +119,79 @@ function initDnD(){
   });
 }
 
+/* ---------- Autocomplete (podpowiedzi) ---------- */
+function getEmotesFromTags(raw){
+  let arr = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (typeof raw === 'string') arr = raw.split(/[,;\s]+/);
+  else if (raw && typeof raw.tag === 'string') arr = [raw.tag];
+
+  return arr
+    .map(x => (x || '').toString().trim())
+    .filter(Boolean)
+    .map(x => {
+      const lx = x.toLowerCase();
+      if (x === '⚽' || lx === 'piłka' || lx === 'pilka' || lx === 'soccer' || lx === 'football') return '⚽';
+      if (x === '🏀' || lx === 'kosz' || lx === 'basket' || lx === 'basketball') return '🏀';
+      return null;
+    })
+    .filter(Boolean);
+}
+function suggestions(query, exceptIndex=-1, limit=8){
+  const q = stripAccents(query.trim());
+  if (!q) return [];
+  const used = new Set(teams.map((t,i)=> i===exceptIndex ? '__SELF__' : normalizeName(t.name)));
+  const list = dbTeams
+    .filter(t => t && t.name)
+    .filter(t => stripAccents(t.name).includes(q))
+    .filter(t => !used.has(normalizeName(t.name))); // nie proponuj już użytych
+  // sort: zaczynające się od tekstu na górze
+  list.sort((a,b)=>{
+    const an = stripAccents(a.name).startsWith(q) ? 0 : 1;
+    const bn = stripAccents(b.name).startsWith(q) ? 0 : 1;
+    return an - bn || a.name.localeCompare(b.name,'pl');
+  });
+  return list.slice(0, limit);
+}
+function makeACBox(container){
+  const box = document.createElement('div');
+  box.className = 'ac';
+  container.appendChild(box);
+  return box;
+}
+function renderAC(box, items, onPick){
+  if (!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = '';
+  items.forEach((t, idx)=>{
+    const it = document.createElement('button');
+    it.type='button';
+    it.className='ac-item' + (idx===0 ? ' selected':'');
+    it.dataset.idx = String(idx);
+    it.innerHTML = `
+      <span class="ac-badge" style="--badge:${colorFor(t.name)}">${abbr(t.name)}</span>
+      <span class="ac-text">${t.name}</span>
+      <span class="ac-tags">${(getEmotesFromTags(t.tags)||[]).join(' ')}</span>
+    `;
+    it.addEventListener('mousedown', (e)=>{ e.preventDefault(); onPick(t); });
+    box.appendChild(it);
+  });
+  box.style.display='block';
+}
+function moveACSelection(box, dir){
+  const items = [...box.querySelectorAll('.ac-item')];
+  if (!items.length) return;
+  let idx = items.findIndex(el=>el.classList.contains('selected'));
+  idx = (idx + dir + items.length) % items.length;
+  items.forEach(el=>el.classList.remove('selected'));
+  items[idx].classList.add('selected');
+}
+function getACSelected(box, data){
+  const sel = box.querySelector('.ac-item.selected');
+  if (!sel) return null;
+  const i = Number(sel.dataset.idx||0);
+  return data[i] || null;
+}
+
 /* ---------- Render tabeli ---------- */
 function render(){
   rowsEl.innerHTML = '';
@@ -134,7 +212,7 @@ function render(){
       <div class="points"><span class="pts" contenteditable="true">${t.pts}</span></div>
     `;
 
-    // Zaznaczenie wiersza (bez kolizji z edycją)
+    // Zaznaczenie wiersza
     row.addEventListener('mousedown', (ev)=>{
       if (ev.target.closest('.name, .pts, .icon-btn')) return;
       setSelectedRow(i);
@@ -144,13 +222,67 @@ function render(){
     const img = row.querySelector('img.logo');
     setAutoLogo(img, t);
 
-    // Edycja nazwy
-    row.querySelector('.name').addEventListener('input', e=>{
+    // ======= Nazwa + Autocomplete + Blokada duplikatów =======
+    const nameEl = row.querySelector('.name');
+    const teamContainer = row.querySelector('.team');
+    let prevName = t.name;
+    const acBox = makeACBox(teamContainer);
+    let acData = [];
+
+    function acceptSuggestion(item){
+      if (!item) return;
+      nameEl.textContent = item.name;
+      teams[i].name = item.name;
+      setAutoLogo(img, teams[i]);
+      acBox.style.display='none';
+      setTimeout(()=> nameEl.blur(), 0);
+    }
+    function showAC(){
+      const q = nameEl.textContent;
+      acData = suggestions(q, i, 8);
+      renderAC(acBox, acData, acceptSuggestion);
+    }
+    function hideAC(){ acBox.style.display='none'; }
+
+    nameEl.addEventListener('focus', ()=>{
+      prevName = teams[i].name;
+      showAC();
+    });
+    nameEl.addEventListener('input', e=>{
       teams[i].name = e.currentTarget.textContent.trim();
       setAutoLogo(img, teams[i]);
+      showAC();
+    });
+    nameEl.addEventListener('keydown', e=>{
+      if (acBox.style.display==='block'){
+        if (e.key==='ArrowDown'){ e.preventDefault(); moveACSelection(acBox, +1); }
+        else if (e.key==='ArrowUp'){ e.preventDefault(); moveACSelection(acBox, -1); }
+        else if (e.key==='Enter'){ e.preventDefault(); acceptSuggestion(getACSelected(acBox, acData)); }
+        else if (e.key==='Escape'){ e.preventDefault(); hideAC(); }
+      }
+    });
+    nameEl.addEventListener('blur', ()=>{
+      // opóźnienie by klik w podpowiedź zadziałał
+      setTimeout(()=> hideAC(), 120);
+      const newName = nameEl.textContent.trim();
+      if (!newName){
+        teams[i].name = prevName;
+        nameEl.textContent = prevName;
+        return;
+      }
+      if (isNameTaken(newName, i)){
+        // duplikat – cofamy i sygnalizujemy
+        nameEl.classList.add('name-dup');
+        setTimeout(()=> nameEl.classList.remove('name-dup'), 800);
+        teams[i].name = prevName;
+        nameEl.textContent = prevName;
+        setAutoLogo(img, teams[i]);
+      }else{
+        teams[i].name = newName;
+      }
     });
 
-    // Edycja punktów
+    // ======= Punkty =======
     const ptsEl = row.querySelector('.pts');
     ptsEl.addEventListener('focus', e=>{
       if (e.currentTarget.textContent.trim() === '0') e.currentTarget.textContent = '';
@@ -206,24 +338,6 @@ function updateDbButtons(){
 }
 
 /* ---------- Baza klubów – kafelki + tagi + filtr (single‑select) ---------- */
-function getEmotesFromTags(raw){
-  let arr = [];
-  if (Array.isArray(raw)) arr = raw;
-  else if (typeof raw === 'string') arr = raw.split(/[,;\s]+/);
-  else if (raw && typeof raw.tag === 'string') arr = [raw.tag];
-
-  return arr
-    .map(x => (x || '').toString().trim())
-    .filter(Boolean)
-    .map(x => {
-      const lx = x.toLowerCase();
-      if (x === '⚽' || lx === 'piłka' || lx === 'pilka' || lx === 'soccer' || lx === 'football') return '⚽';
-      if (x === '🏀' || lx === 'kosz' || lx === 'basket' || lx === 'basketball') return '🏀';
-      return null;
-    })
-    .filter(Boolean);
-}
-
 function renderDbList(){
   const q = stripAccents(dbSearchEl.value.trim());
   dbFiltered = dbTeams
