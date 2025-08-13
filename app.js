@@ -4,55 +4,81 @@ const LOGO_PATH = 'herby';
 const PLACEHOLDER_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="100%" height="100%" rx="12" ry="12" fill="#e5e7eb"/><text x="50%" y="54%" text-anchor="middle" font-family="Inter, Arial" font-size="18" fill="#475569">LOGO</text></svg>`);
 const COUNTRY_NAMES = { SZ: 'Szwajcaria', W: 'Wosterg', I: 'Inne kraje' };
 
-// Startowa tabela (12 rzędów)
+// Startowa tabela
 let teams = [
-  { name: "Zamieć Bór",          pts: 0 }, { name: "Żółci Przennów",      pts: 0 },
-  { name: "Biali Tatarów",       pts: 0 }, { name: "Brzozy Mały Baczów",  pts: 0 },
-  { name: "Czarni Baczów",       pts: 0 }, { name: "Dąbniarka Vista",     pts: 0 },
-  { name: "Garbarnia Baczów",    pts: 0 }, { name: "Olimpia Aavekaupunki",pts: 0 },
-  { name: "Byki Tatarów",        pts: 0 }, { name: "Partizana Czarnolas", pts: 0 },
-  { name: "Poseidon Kings",      pts: 0 }, { name: "ZAM Trub",            pts: 0 }
+  { name: "Zamieć Bór", pts: 0 }, { name: "Żółci Przennów", pts: 0 },
+  { name: "Biali Tatarów", pts: 0 }, { name: "Brzozy Mały Baczów", pts: 0 },
+  { name: "Czarni Baczów", pts: 0 }, { name: "Dąbniarka Vista", pts: 0 },
+  { name: "Garbarnia Baczów", pts: 0 }, { name: "Olimpia Aavekaupunki", pts: 0 },
+  { name: "Byki Tatarów", pts: 0 }, { name: "Partizana Czarnolas", pts: 0 },
+  { name: "Poseidon Kings", pts: 0 }, { name: "ZAM Trub", pts: 0 }
 ];
 const defaultTeams = JSON.parse(JSON.stringify(teams));
 
-// UI state
-let dbTeams = [];          // { name, tags?[], country: 'SZ'|'W'|'I', countryName? }
-let dbFiltered = [];
-let dbSelectedIdx = -1;
-let selectedRowIndex = -1;
-let rowsSortable = null;   // SortableJS instancja
-let selectedTag = null;    // '⚽' | '🏀' | null
-let selectedCountry = null;// 'SZ' | 'W' | 'I' | null
+// UI
+let dbTeams = []; let dbFiltered = [];
+let dbSelectedIdx = -1; let selectedRowIndex = -1;
+let rowsSortable = null; let selectedTag = null; let selectedCountry = null;
+let sortMode = 'none'; // 'none' | 'desc' | 'asc'
 
 // DOM
 const rowsEl = document.getElementById('rows');
-const inPromotion = document.getElementById('inPromotion');
-const inReleg = document.getElementById('inReleg');
+const inPodium  = document.getElementById('inPodium');
+const inPlayoff = document.getElementById('inPlayoff');
+const inReleg   = document.getElementById('inReleg');
 const dbSearchEl = document.getElementById('dbSearch');
-const dbListEl = document.getElementById('dbList');
-const btnDbAdd = document.getElementById('btnDbAdd');
+const dbListEl   = document.getElementById('dbList');
+const btnDbAdd   = document.getElementById('btnDbAdd');
 const btnDbReplace = document.getElementById('btnDbReplace');
+const btnSortPts = document.getElementById('btnSortPts');
 
 // Helpers
 const buildLogoUrl = name => `${LOGO_PATH}/${encodeURIComponent(name.trim())}.png`;
 const setAutoLogo = (img, t) => { img.onerror = () => { img.onerror = null; img.src = PLACEHOLDER_SVG; }; img.src = buildLogoUrl(t.name); };
-const classForIndex = i => { const p=+inPromotion.value|0, r=+inReleg.value|0; if(i===0)return'first'; if(i===1&&p>=2)return'second'; if(i===2&&p>=3)return'third'; if(i>=teams.length-r)return'releg'; return''; };
+function classForIndex(i){
+  const podium = Math.min(3, Math.max(1, +inPodium.value|0)); // 1..3
+  const playoff = Math.max(0, +inPlayoff.value|0);
+  const releg = Math.max(0, +inReleg.value|0);
+  if (i===0) return 'first';
+  if (i===1 && podium>=2) return 'second';
+  if (i===2 && podium>=3) return 'third';
+  const startTopPlayoff = Math.min(podium, 3);
+  if (playoff>0 && i>=startTopPlayoff && i<startTopPlayoff+playoff) return 'playoff';
+  const n=teams.length;
+  if (releg>0 && i>=n-releg) return 'releg';
+  return '';
+}
 const placeCaretAtEnd = el => { const r=document.createRange(), s=window.getSelection(); r.selectNodeContents(el); r.collapse(false); s.removeAllRanges(); s.addRange(r); };
 const normalizeName = s => (s||'').trim().replace(/\s+/g,' ').toLowerCase();
-const isNameTaken = (name, except=-1) => { const n=normalizeName(name); return teams.some((t,i)=>i!==except && normalizeName(t.name)===n && n!==''); };
+const isNameTaken = (name, except=-1) => teams.some((t,i)=> i!==except && normalizeName(t.name)===normalizeName(name) && name.trim()!=='');
 const setSelectedRow = i => { selectedRowIndex=i; document.querySelectorAll('#rows .row-item').forEach((el,idx)=>el.classList.toggle('selected', idx===i)); updateDbButtons(); };
 const findTeamIndexByName = name => teams.findIndex(t => normalizeName(t.name)===normalizeName(name));
 const stripAccents = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const abbr = name => name.trim().split(/\s+/).map(p=>p[0]).join('').slice(0,3).toUpperCase();
 const colorFor = name => { let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))%360; return `hsl(${h} 70% 45%)`; };
 
-function getCountryCode(t){ const c=(t.country||t.c||'SZ').toUpperCase(); return (c==='SZ'||c==='W'||c==='I')?c:'SZ'; }
-function getCountryTitle(t){ const cc=getCountryCode(t); const base=COUNTRY_NAMES[cc]||cc; if(cc==='I' && t.countryName){ return `${base}: ${t.countryName}`; } return base; }
+function getEmotesFromTags(raw){
+  let arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
+  return arr.map(x=>(x||'').toString().trim()).filter(Boolean).map(x=>{
+    const lx=x.toLowerCase();
+    if (x==='⚽'||lx==='piłka'||lx==='pilka'||lx==='soccer'||lx==='football') return '⚽';
+    if (x==='🏀'||lx==='kosz'||lx==='basket'||lx==='basketball') return '🏀';
+    return null;
+  }).filter(Boolean);
+}
+function getCountryCode(t){
+  const c=(t.country||t.c||'SZ').toUpperCase();
+  return (c==='SZ'||c==='W'||c==='I')?c:'SZ';
+}
+function getCountryTitle(t){
+  const cc=getCountryCode(t); const base=COUNTRY_NAMES[cc]||cc;
+  return cc==='I' && t.countryName ? `${base}: ${t.countryName}` : base;
+}
 
-// Rozróżnianie dragów
+// Drag typy
 function isClubDrag(e){
   const t=e.dataTransfer && e.dataTransfer.types; if(!t) return false;
-  const a=[...t]; return a.includes('text/club') || a.includes('application/x-club');
+  const a=[...t]; return a.includes('text/club')||a.includes('application/x-club');
 }
 function getClubNameFromDT(e){
   const dt=e.dataTransfer; if(!dt) return null;
@@ -62,12 +88,11 @@ function getClubNameFromDT(e){
   const m=dbTeams.find(x=>x?.name && x.name.toLowerCase()===plain.toLowerCase()); return m?m.name:null;
 }
 
-/* ---------- SortableJS (kolejność) ---------- */
+/* ---------- SortableJS ---------- */
 function initDnD(){
-  if(rowsSortable) rowsSortable.destroy();
+  if (rowsSortable) rowsSortable.destroy();
   rowsSortable = new Sortable(rowsEl, {
-    animation:150, handle:'.pos', draggable:'.row-item',
-    ghostClass:'drag-ghost', chosenClass:'drag-chosen',
+    animation:150, handle:'.pos', draggable:'.row-item', ghostClass:'drag-ghost', chosenClass:'drag-chosen',
     onEnd:e=>{
       if(e.oldIndex===e.newIndex||e.oldIndex==null||e.newIndex==null) return;
       const it=teams.splice(e.oldIndex,1)[0]; teams.splice(e.newIndex,0,it);
@@ -79,17 +104,6 @@ function initDnD(){
       render();
     }
   });
-}
-
-/* ---------- Tag helpers ---------- */
-function getEmotesFromTags(raw){
-  let arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
-  return arr.map(x=>(x||'').toString().trim()).filter(Boolean).map(x=>{
-    const lx=x.toLowerCase();
-    if (x==='⚽'||lx==='piłka'||lx==='pilka'||lx==='soccer'||lx==='football') return '⚽';
-    if (x==='🏀'||lx==='kosz'||lx==='basket'||lx==='basketball') return '🏀';
-    return null;
-  }).filter(Boolean);
 }
 
 /* ---------- Autocomplete ---------- */
@@ -128,12 +142,12 @@ function render(){
         <div class="row-actions"><button class="icon-btn" data-act="up">↑</button><button class="icon-btn" data-act="down">↓</button><button class="icon-btn" data-act="del">✕</button></div>
       </div>
       <div class="points"><span class="pts" contenteditable="true">${t.pts}</span></div>`;
+
     row.addEventListener('mousedown',ev=>{ if(ev.target.closest('.name,.pts,.icon-btn'))return; setSelectedRow(i); });
 
     const img=row.querySelector('img.logo'); setAutoLogo(img,t);
 
-    // Nazwa + autocomplete + blokada duplikatów
-    const nameEl=row.querySelector('.name'), teamWrap=row.querySelector('.team'); let prevName=t.name; const acBox=makeACBox(teamWrap); let acData=[];
+    const nameEl=row.querySelector('.name'), wrap=row.querySelector('.team'); let prevName=t.name; const acBox=makeACBox(wrap); let acData=[];
     const accept=item=>{ if(!item)return; nameEl.textContent=item.name; teams[i].name=item.name; setAutoLogo(img,teams[i]); acBox.style.display='none'; renderDbList(); setTimeout(()=>nameEl.blur(),0); };
     const showAC=()=>{ acData=suggestions(nameEl.textContent,i,8); renderAC(acBox,acData,accept); };
     const hideAC=()=>{ acBox.style.display='none'; };
@@ -143,13 +157,11 @@ function render(){
     nameEl.addEventListener('keydown',e=>{ if(acBox.style.display==='block'){ if(e.key==='ArrowDown'){e.preventDefault();moveACSelection(acBox,+1);} else if(e.key==='ArrowUp'){e.preventDefault();moveACSelection(acBox,-1);} else if(e.key==='Enter'){e.preventDefault();accept(getACSelected(acBox,acData));} else if(e.key==='Escape'){e.preventDefault();hideAC();} }});
     nameEl.addEventListener('blur',()=>{ setTimeout(()=>hideAC(),120); const nn=nameEl.textContent.trim(); if(!nn){ teams[i].name=prevName; nameEl.textContent=prevName; renderDbList(); return; } if(isNameTaken(nn,i)){ nameEl.classList.add('name-dup'); setTimeout(()=>nameEl.classList.remove('name-dup'),800); teams[i].name=prevName; nameEl.textContent=prevName; setAutoLogo(img,teams[i]); renderDbList(); } else { teams[i].name=nn; renderDbList(); } });
 
-    // Punkty
     const pts=row.querySelector('.pts');
     pts.addEventListener('focus',e=>{ if(e.currentTarget.textContent.trim()==='0') e.currentTarget.textContent=''; placeCaretAtEnd(e.currentTarget); });
     pts.addEventListener('input',e=>{ const v=e.currentTarget.textContent.replace(/[^\d-]/g,''); e.currentTarget.textContent=v; teams[i].pts=Number(v||0); placeCaretAtEnd(e.currentTarget); });
     pts.addEventListener('blur',e=>{ let v=e.currentTarget.textContent.replace(/[^\d-]/g,''); if(v==='') v='0'; e.currentTarget.textContent=v; teams[i].pts=Number(v); });
 
-    // Akcje
     row.querySelectorAll('.row-actions .icon-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{ const a=btn.dataset.act;
         if(a==='up'&&i>0){ const t0=teams[i-1]; teams[i-1]=teams[i]; teams[i]=t0; render(); }
@@ -168,7 +180,7 @@ function render(){
   requestAnimationFrame(renderDbList);
 }
 
-/* ---------- Panel – stany przycisków ---------- */
+/* ---------- Panel: stany ---------- */
 function updateDbButtons(){
   const has = dbSelectedIdx!==-1 && dbFiltered[dbSelectedIdx];
   const selName = has ? dbFiltered[dbSelectedIdx].name : null;
@@ -180,9 +192,9 @@ function updateDbButtons(){
   btnDbReplace.title = conflict ? 'Ta drużyna już jest w tabeli.' : '';
 }
 
-/* ---------- Baza klubów – lista + filtry + drag ---------- */
+/* ---------- Baza: lista + filtry + drag ---------- */
 function renderDbList(){
-  const prevSelName = (dbFiltered[dbSelectedIdx] && dbFiltered[dbSelectedIdx].name) || null;
+  const prevSel = (dbFiltered[dbSelectedIdx] && dbFiltered[dbSelectedIdx].name) || null;
   const q = stripAccents(dbSearchEl.value.trim());
   const filtered = dbTeams
     .filter(t => !q || stripAccents(t.name).includes(q))
@@ -193,7 +205,7 @@ function renderDbList(){
     });
 
   dbFiltered = filtered;
-  dbSelectedIdx = prevSelName ? dbFiltered.findIndex(t => t.name === prevSelName) : -1;
+  dbSelectedIdx = prevSel ? dbFiltered.findIndex(t=>t.name===prevSel) : -1;
 
   dbListEl.innerHTML='';
   dbFiltered.slice(0,200).forEach((t,idx)=>{
@@ -217,18 +229,13 @@ function renderDbList(){
   updateDbButtons();
 }
 
-// Filtr dyscypliny (single-select)
+// Filtry
 function updateTagPillsUI(){ document.querySelectorAll('#tagFilter .tag-pill').forEach(b=>{ const t=b.dataset.tag; if(t==='__clear') b.classList.remove('active'); else b.classList.toggle('active', selectedTag===t); }); }
-document.querySelectorAll('#tagFilter .tag-pill').forEach(btn=>{
-  btn.addEventListener('click',()=>{ const t=btn.dataset.tag; selectedTag = (t==='__clear') ? null : (selectedTag===t ? null : t); updateTagPillsUI(); renderDbList(); });
-});
+document.querySelectorAll('#tagFilter .tag-pill').forEach(btn=>btn.addEventListener('click',()=>{ const t=btn.dataset.tag; selectedTag=(t==='__clear')?null:(selectedTag===t?null:t); updateTagPillsUI(); renderDbList(); }));
 updateTagPillsUI();
 
-// Filtr kraju (single-select)
 function updateCountryPillsUI(){ document.querySelectorAll('#countryFilter .country-pill').forEach(b=>{ const c=b.dataset.country; if(c==='__clear') b.classList.remove('active'); else b.classList.toggle('active', selectedCountry===c); }); }
-document.querySelectorAll('#countryFilter .country-pill').forEach(btn=>{
-  btn.addEventListener('click',()=>{ const c=btn.dataset.country; selectedCountry = (c==='__clear') ? null : (selectedCountry===c ? null : c); updateCountryPillsUI(); renderDbList(); });
-});
+document.querySelectorAll('#countryFilter .country-pill').forEach(btn=>btn.addEventListener('click',()=>{ const c=btn.dataset.country; selectedCountry=(c==='__clear')?null:(selectedCountry===c?null:c); updateCountryPillsUI(); renderDbList(); }));
 updateCountryPillsUI();
 
 /* ---------- Drop z bazy na tabelę ---------- */
@@ -250,6 +257,13 @@ rowsEl.addEventListener('drop', e=>{
   teams[idx].name=name; render();
 });
 
+/* ---------- Sortowanie po punktach ---------- */
+btnSortPts.addEventListener('click', ()=>{
+  if (sortMode==='none' || sortMode==='asc'){ sortMode='desc'; teams.sort((a,b)=>b.pts-a.pts); btnSortPts.textContent='↓'; }
+  else { sortMode='asc'; teams.sort((a,b)=>a.pts-b.pts); btnSortPts.textContent='↑'; }
+  render();
+});
+
 /* ---------- Załaduj bazę (cache-bust + komunikat) ---------- */
 async function loadDb(){
   const box=document.getElementById('dbError'); const show=msg=>{ if(box){ box.style.display='block'; box.textContent='Błąd ładowania bazy: '+msg+' (używam listy zapasowej)'; } };
@@ -259,23 +273,21 @@ async function loadDb(){
     const txt=await res.text(); let arr; try{ arr=JSON.parse(txt); }catch{ throw new Error('niepoprawny JSON (przecinki/UTF‑8)'); }
     dbTeams=(Array.isArray(arr)?arr:[]).map(x=>{
       if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
-      const cc = (x?.country || x?.c || 'SZ').toUpperCase();
-      return { name: x?.name||'', tags: x?.tags ?? x?.tag ?? [], country: (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ', countryName: x?.countryName || x?.cn || '' };
+      const cc=(x?.country||x?.c||'SZ').toUpperCase();
+      return { name:x?.name||'', tags:x?.tags??x?.tag??[], country:(cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ', countryName:x?.countryName||x?.cn||'' };
     }).filter(t=>t.name);
     hide();
   }catch(e){
     show(e.message||'nieznany błąd');
-    // fallback: większość SZ, wyjątki W/I z Twojej listy
+    // fallback (reszta SZ)
     const base=defaultTeams.map(t=>({name:t.name,tags:[],country:'SZ'}));
     const extras=[
       {name:"Areniscas Cadin",country:'W'},{name:"Górskie Piaskówki",country:'W'},
       {name:"Przenni Między Polanie",country:'W'},{name:"WKS Nowy Bór",country:'W'},
       {name:"Union Zephyr",country:'I',countryName:'Zephyria'},
-      {name:"Twierdza Aleksandria",country:'I',countryName:'Aleksandria'},
-      {name:"Groklin Cedynia",country:'SZ'},{name:"Jeziorak Tar",country:'SZ'},
-      {name:"Osiris Tatarów",country:'SZ'},{name:"Lokomotiv Królewiec",country:'SZ'}
+      {name:"Twierdza Aleksandria",country:'I',countryName:'Aleksandria'}
     ];
-    dbTeams = base.concat(extras);
+    dbTeams=base.concat(extras);
   }
   renderDbList();
 }
@@ -306,13 +318,13 @@ document.getElementById('btnExportAll').addEventListener('click', async ()=>{
   }
 });
 
-// Panel
+// Panel / baza
 document.getElementById('btnAdd').addEventListener('click', ()=>{ teams.push({name:"Nowa drużyna", pts:0}); render(); });
-document.getElementById('btnReset').addEventListener('click', ()=>{ teams=JSON.parse(JSON.stringify(defaultTeams)); selectedRowIndex=-1; render(); });
-inPromotion.addEventListener('change', render);
+document.getElementById('btnReset').addEventListener('click', ()=>{ teams=JSON.parse(JSON.stringify(defaultTeams)); selectedRowIndex=-1; sortMode='none'; btnSortPts.textContent='↕'; render(); });
+inPodium.addEventListener('change', ()=>{ if(+inPodium.value<1) inPodium.value=1; if(+inPodium.value>3) inPodium.value=3; render(); });
+inPlayoff.addEventListener('change', render);
 inReleg.addEventListener('change', render);
 
-// DB actions
 dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(!c) return; if(findTeamIndexByName(c.name)!==-1){ alert('Ta drużyna już jest w tabeli.'); return; } teams.push({name:c.name, pts:0}); render(); });
 btnDbReplace.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1||!c) return; const e=findTeamIndexByName(c.name); if(e!==-1 && e!==selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; } teams[selectedRowIndex]={name:c.name, pts:teams[selectedRowIndex].pts||0}; render(); });

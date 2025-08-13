@@ -6,7 +6,7 @@
   <title>Generator Tabeli Ligowej</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <div class="app">
@@ -14,8 +14,12 @@
       <h2>Ustawienia</h2>
 
       <div class="row">
-        <label>Ilość miejsc promowanych:</label>
-        <input id="inPromotion" type="number" min="0" value="3" style="width:90px">
+        <label>Podium (1–3):</label>
+        <input id="inPodium" type="number" min="1" max="3" value="3" style="width:90px">
+      </div>
+      <div class="row">
+        <label>Ilość miejsc barażowych (awans):</label>
+        <input id="inPlayoff" type="number" min="0" value="0" style="width:90px">
       </div>
       <div class="row">
         <label>Ilość miejsc spadkowych:</label>
@@ -33,18 +37,15 @@
 
       <h2>Baza klubów</h2>
       <div id="dbError" class="db-error" style="display:none"></div>
-      <p class="muted">
-        - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić. Kluby już użyte są zablokowane do przeciągania.
-      </p>
 
-      <!-- Filtr dyscypliny (single-select) -->
+      <!-- Filtr dyscypliny -->
       <div class="tag-filter" id="tagFilter">
         <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
         <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
         <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść">Wyczyść</button>
       </div>
 
-      <!-- Filtr kraju (single-select) -->
+      <!-- Filtr kraju -->
       <div class="country-filter" id="countryFilter">
         <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
         <button type="button" class="country-pill" data-country="W"  title="Wosterg">W</button>
@@ -60,7 +61,8 @@
       </div>
 
       <p class="note" style="margin-top:12px">
-        Herby ładujemy z folderu „herby” po dokładnej nazwie drużyny (.png).
+        - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić (kluby już użyte są zablokowane).
+        <br>- Herby ładuj z folderu „herby” po dokładnej nazwie drużyny (.png).
       </p>
     </div>
 
@@ -75,7 +77,10 @@
           <div class="board-header">
             <div style="padding-left:8px">Poz.</div>
             <div>Drużyna</div>
-            <div style="text-align:center">Pkt</div>
+            <div class="header-points">
+              <span>Pkt</span>
+              <button id="btnSortPts" class="sort-btn" title="Sortuj po punktach">↕</button>
+            </div>
           </div>
           <div id="rows"></div>
         </div>
@@ -83,11 +88,10 @@
     </div>
   </div>
 
-  <!-- Stopka poza sekcją tabeli -->
   <footer class="site-footer">powered by OKB</footer>
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
