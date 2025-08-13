@@ -6,8 +6,7 @@
   <title>Generator Tabeli Ligowej</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <!-- wersjonowanie cache bez zmiany nazwy pliku -->
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
   <div class="app">
@@ -36,13 +35,21 @@
       <div id="dbError" class="db-error" style="display:none"></div>
       <p class="muted">
         - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić. Kluby już użyte są zablokowane do przeciągania.
-        <br>- Filtruj po tagach i dodawaj/zastępuj z przycisków.
       </p>
 
+      <!-- Filtr dyscypliny (single-select) -->
       <div class="tag-filter" id="tagFilter">
         <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
         <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
-        <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść filtr">Wyczyść</button>
+        <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść">Wyczyść</button>
+      </div>
+
+      <!-- Filtr kraju (single-select) -->
+      <div class="country-filter" id="countryFilter">
+        <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
+        <button type="button" class="country-pill" data-country="W"  title="Wosterg">W</button>
+        <button type="button" class="country-pill" data-country="I"  title="Inne kraje">I</button>
+        <button type="button" class="country-pill clear" data-country="__clear" title="Wyczyść">Wyczyść</button>
       </div>
 
       <input id="dbSearch" type="text" placeholder="Szukaj klubu..." class="db-search">
@@ -81,7 +88,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <!-- wersjonowanie cache bez zmiany nazwy pliku -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
