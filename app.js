@@ -57,9 +57,22 @@ function getEmotesFromTags(raw){
 
 // Klasy wiersza (podium + baraże od góry + spadki)
 function classForIndex(i){
-  const podium = Math.min(3, Math.max(1, +inPodium.value|0));
-  const playoff = Math.max(0, +inPlayoff.value|0);
-  const releg = Math.max(0, +inReleg.value|0);
+  const n = teams.length;
+  let podium  = Math.min(3, Math.max(1, +inPodium.value|0));
+  let playoff = Math.max(0, +inPlayoff.value|0);
+  let releg   = Math.max(0, +inReleg.value|0);
+
+  // [ZMIANA] – twarde ograniczenie efektywnych wartości względem "space"
+  const space = Math.max(0, n - podium);
+  if (playoff > space) playoff = space;
+  if (releg   > space) releg   = space;
+  if (playoff + releg > space){
+    // preferuj zachować playoff, przytnij releg
+    releg = Math.max(0, Math.min(releg, space - playoff));
+    if (playoff + releg > space){
+      playoff = Math.max(0, space - releg);
+    }
+  }
 
   if (i===0) return 'first';
   if (i===1 && podium>=2) return 'second';
@@ -68,12 +81,11 @@ function classForIndex(i){
   const startTopPlayoff = Math.min(podium, 3);
   if (playoff>0 && i>=startTopPlayoff && i<startTopPlayoff+playoff) return 'playoff';
 
-  const n=teams.length;
   if (releg>0 && i>=n-releg) return 'releg';
   return '';
 }
 
-// [ZMIANA] SAMOKOREKTA – niezależne pola; bez auto‑wypełniania
+// SAMOKOREKTA – niezależne pola; bez auto‑wypełniania
 function coerceSettings(trigger='auto', silent=false){
   const n = teams.length;
 
@@ -280,20 +292,35 @@ function updateCountryPillsUI(){ document.querySelectorAll('#countryFilter .coun
 document.querySelectorAll('#countryFilter .country-pill').forEach(btn=>btn.addEventListener('click',()=>{ const c=btn.dataset.country; selectedCountry=(c==='__clear')?null:(selectedCountry===c?null:c); updateCountryPillsUI(); renderDbList(); }));
 updateCountryPillsUI();
 
-/* ---------- Drop z bazy na tabelę ---------- */
+/* ---------- Drop z bazy na tabelę [ZMIANA] ---------- */
 rowsEl.addEventListener('dragover', e=>{
+  const dt = e.dataTransfer;
+  const types = dt?.types ? Array.from(dt.types) : [];
+  const isClub = types.includes('text/club') || types.includes('application/x-club');
+  // Akceptujemy tylko drag z bazy klubów (unikamy konfliktu z SortableJS)
+  if (!isClub) return;
+
   e.preventDefault();
-  const row=e.target.closest('.row-item');
+  const row = e.target.closest('.row-item');
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
   if (row) row.classList.add('db-over');
 });
-rowsEl.addEventListener('dragleave', ()=>{ document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over')); });
+rowsEl.addEventListener('dragleave', ()=>{
+  document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
+});
 rowsEl.addEventListener('drop', e=>{
   const dt = e.dataTransfer;
-  const name = (dt && (dt.getData('text/club') || dt.getData('application/x-club') || dt.getData('text/plain'))) || '';
-  const row=e.target.closest('.row-item');
+  const types = dt?.types ? Array.from(dt.types) : [];
+  const isClub = types.includes('text/club') || types.includes('application/x-club');
+
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
+  if (!isClub) return; // ignoruj drop niespełniający typu (np. sort w tabeli)
+
+  e.preventDefault();
+  const name = dt.getData('text/club') || dt.getData('application/x-club') || '';
+  const row=e.target.closest('.row-item');
   if(!name||!row) return;
+
   const idx=[...rowsEl.children].indexOf(row); if(idx<0) return;
   const exist=teams.findIndex(x=>normalizeName(x.name)===normalizeName(name));
   if(exist!==-1 && exist!==idx) return;
@@ -370,11 +397,14 @@ inPodium.addEventListener('input', ()=>coerceSettings('podium'));
 inPlayoff.addEventListener('input', ()=>coerceSettings('playoff'));
 inReleg.addEventListener('input', ()=>coerceSettings('releg'));
 
+// [ZMIANA] – dodatkowe nasłuchy "change"
+inPodium.addEventListener('change', ()=>coerceSettings('podium'));
+inPlayoff.addEventListener('change', ()=>coerceSettings('playoff'));
+inReleg.addEventListener('change', ()=>coerceSettings('releg'));
+
 dbSearchEl.addEventListener('input', renderDbList);
 btnDbAdd.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(!c) return; if(teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name))!==-1){ alert('Ta drużyna już jest w tabeli.'); return; } teams.push({name:c.name, pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); });
 btnDbReplace.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1||!c) return; const e=teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name)); if(e!==-1 && e!==selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; } teams[selectedRowIndex]={name:c.name, pts:teams[selectedRowIndex].pts||0}; coerceSettings('auto'); });
-
-// UWAGA: usunięto zdublowany nasłuch sortowania po punktach – zostaje ten wyżej
 
 // Start
 coerceSettings('auto'); // inicjalna korekta
