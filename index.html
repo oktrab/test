@@ -6,7 +6,7 @@
   <title>Generator Tabeli Ligowej</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <div class="app">
@@ -26,6 +26,13 @@
         <input id="inReleg" type="number" min="0" value="2" style="width:90px">
       </div>
 
+      <!-- Legenda kolorów -->
+      <div class="legend">
+        <div class="legend-item"><span class="chip chip-gold"></span><span>Podium</span></div>
+        <div class="legend-item"><span class="chip chip-green"></span><span>Baraże (awans)</span></div>
+        <div class="legend-item"><span class="chip chip-red"></span><span>Spadek</span></div>
+      </div>
+
       <div class="row" style="margin-top:12px; gap:10px; flex-wrap:wrap">
         <button id="btnAdd" class="btn secondary">Dodaj wiersz</button>
         <button id="btnReset" class="btn secondary">Reset (domyślne)</button>
@@ -37,6 +44,10 @@
 
       <h2>Baza klubów</h2>
       <div id="dbError" class="db-error" style="display:none"></div>
+      <p class="note">
+        - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić (kluby już użyte są zablokowane).
+        <br>- Filtruj po dyscyplinie i kraju. Klik w klub – zaznacza go do “Dodaj/Zastąp”.
+      </p>
 
       <!-- Filtr dyscypliny -->
       <div class="tag-filter" id="tagFilter">
@@ -59,11 +70,6 @@
         <button id="btnDbAdd" class="btn secondary" disabled>Dodaj na koniec</button>
         <button id="btnDbReplace" class="btn secondary" disabled>Zastąp zaznaczony</button>
       </div>
-
-      <p class="note" style="margin-top:12px">
-        - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić (kluby już użyte są zablokowane).
-        <br>- Herby ładuj z folderu „herby” po dokładnej nazwie drużyny (.png).
-      </p>
     </div>
 
     <div class="stage-wrap">
@@ -92,6 +98,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
