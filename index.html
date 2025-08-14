@@ -48,6 +48,9 @@
         - Przeciągnij klub z listy i upuść na wiersz, aby go podmienić (kluby już użyte są zablokowane).
         <br>- Filtruj po dyscyplinie i kraju. Klik w klub – zaznacza go do “Dodaj/Zastąp”.
       </p>
+      <!-- [NOWE] Wczytywanie bazy z pliku (offline) -->
+      <input id="fileDb" type="file" accept=".json,application/json" style="display:none">
+      <button id="btnLoadDb" class="btn secondary">Wczytaj JSON</button>
 
       <!-- Filtr dyscypliny -->
       <div class="tag-filter" id="tagFilter">
@@ -98,6 +101,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

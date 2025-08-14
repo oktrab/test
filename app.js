@@ -4,6 +4,34 @@ const LOGO_PATH = 'herby';
 const PLACEHOLDER_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="100%" height="100%" rx="12" ry="12" fill="#e5e7eb"/><text x="50%" y="54%" text-anchor="middle" font-family="Inter, Arial" font-size="18" fill="#475569">LOGO</text></svg>`);
 const COUNTRY_NAMES = { SZ: 'Szwajcaria', W: 'Wosterg', I: 'Inne kraje' };
 
+// Wbudowany fallback (gdy fetch/inline/plik nie zadziała)
+const EMBEDDED_DB = [
+  { name: "Areniscas Cadin", tags: ["⚽","🏀"], country: "W" },
+  { name: "Brzozy Mały Baczów", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "Garbarnia Baczów", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "Osiris Tatarów", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "Poseidon Kings", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "ZAM Trub", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "Zamieć Bór", tags: ["⚽","🏀"], country: "SZ" },
+  { name: "Byki Tatarów", tags: ["⚽","🏀"], country: "SZ" },
+
+  { name: "Biali Tatarów", tags: ["⚽"], country: "SZ" },
+  { name: "Czarni Baczów", tags: ["⚽"], country: "SZ" },
+  { name: "Dąbniarka Vista", tags: ["⚽"], country: "SZ" },
+  { name: "Górskie Piaskówki", tags: ["⚽"], country: "W" },
+  { name: "Lokomotiv Królewiec", tags: ["⚽"], country: "SZ" },
+  { name: "Olimpia Aavekaupunki", tags: ["⚽"], country: "SZ" },
+  { name: "Partizana Czarnolas", tags: ["⚽"], country: "SZ" },
+  { name: "Przenni Między Polanie", tags: ["⚽"], country: "W" },
+  { name: "Twierdza Aleksandria", tags: ["⚽"], country: "I", countryName: "Aleksandria" },
+  { name: "Union Zephyr", tags: ["⚽"], country: "I", countryName: "Zephyria" },
+  { name: "WKS Nowy Bór", tags: ["⚽"], country: "W" },
+  { name: "Żółci Przennów", tags: ["⚽"], country: "SZ" },
+
+  { name: "Groklin Cedynia", tags: ["🏀"], country: "SZ" },
+  { name: "Jeziorak Tar", tags: ["🏀"], country: "SZ" }
+];
+
 // Tabela startowa
 let teams = [
   { name: "Zamieć Bór", pts: 0 }, { name: "Żółci Przennów", pts: 0 },
@@ -32,6 +60,8 @@ const dbListEl   = document.getElementById('dbList');
 const btnDbAdd   = document.getElementById('btnDbAdd');
 const btnDbReplace = document.getElementById('btnDbReplace');
 const btnSortPts = document.getElementById('btnSortPts');
+const btnLoadDb  = document.getElementById('btnLoadDb');
+const fileDbEl   = document.getElementById('fileDb');
 
 // Helpers
 const buildLogoUrl = name => `${LOGO_PATH}/${encodeURIComponent(name.trim())}.png`;
@@ -54,6 +84,18 @@ function getEmotesFromTags(raw){
     return null;
   }).filter(Boolean);
 }
+function normalizeDbArray(rawArr){
+  return (Array.isArray(rawArr)?rawArr:[]).map(x=>{
+    if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
+    const cc=(x?.country||x?.c||'SZ').toUpperCase();
+    return {
+      name: x?.name||'',
+      tags: x?.tags??x?.tag??[],
+      country: (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ',
+      countryName: x?.countryName||x?.cn||''
+    };
+  }).filter(t=>t.name);
+}
 
 // Klasy wiersza (podium + baraże od góry + spadki)
 function classForIndex(i){
@@ -62,12 +104,11 @@ function classForIndex(i){
   let playoff = Math.max(0, +inPlayoff.value|0);
   let releg   = Math.max(0, +inReleg.value|0);
 
-  // [ZMIANA] – twarde ograniczenie efektywnych wartości względem "space"
+  // twarde ograniczenie względem "space"
   const space = Math.max(0, n - podium);
   if (playoff > space) playoff = space;
   if (releg   > space) releg   = space;
   if (playoff + releg > space){
-    // preferuj zachować playoff, przytnij releg
     releg = Math.max(0, Math.min(releg, space - playoff));
     if (playoff + releg > space){
       playoff = Math.max(0, space - releg);
@@ -97,22 +138,17 @@ function coerceSettings(trigger='auto', silent=false){
   let playoff = Math.max(0, +inPlayoff.value|0);
   let releg   = Math.max(0, +inReleg.value|0);
 
-  const space = Math.max(0, n - podium); // ile miejsc zostaje na playoff + releg razem
+  const space = Math.max(0, n - podium);
 
-  // Każde pole osobno nie może przekroczyć space
   playoff = Math.min(playoff, space);
   releg   = Math.min(releg,   space);
 
-  // Tylko jeśli suma przekracza space – przycinamy drugie pole
   if (playoff + releg > space){
     if (trigger === 'playoff'){
-      // użytkownik zmienił playoff – trzymaj playoff, przytnij spadki
       releg = Math.max(0, space - playoff);
     } else if (trigger === 'releg'){
-      // użytkownik zmienił spadki – trzymaj spadki, przytnij baraże
       playoff = Math.max(0, space - releg);
     } else {
-      // auto/podium/zmiana liczby drużyn – tylko przycinaj
       releg = Math.max(0, Math.min(releg, space - playoff));
       if (playoff + releg > space){
         playoff = Math.max(0, space - releg);
@@ -120,7 +156,6 @@ function coerceSettings(trigger='auto', silent=false){
     }
   }
 
-  // Zapis i maksima
   inPlayoff.value = playoff;
   inReleg.value   = releg;
 
@@ -174,7 +209,6 @@ const getACSelected=(box,data)=>{ const sel=box.querySelector('.ac-item.selected
 
 /* ---------- Render tabeli ---------- */
 function render(){
-  // auto-korekta TYLKO, gdy zmieniła się liczba drużyn
   if (teams.length !== lastTeamCount){
     lastTeamCount = teams.length;
     coerceSettings('auto', true);
@@ -191,12 +225,13 @@ function render(){
         <div class="name" contenteditable="true" spellcheck="false">${t.name}</div>
         <div class="row-actions"><button class="icon-btn" data-act="up">↑</button><button class="icon-btn" data-act="down">↓</button><button class="icon-btn" data-act="del">✕</button></div>
       </div>
-      <div class="points"><span class="pts" contenteditable="true">${t.pts}</span></div>`;
+      <div class="points"><span class="pts" contenteditable="true" spellcheck="false">${t.pts}</span></div>`;
 
     row.addEventListener('mousedown',ev=>{ if(ev.target.closest('.name,.pts,.icon-btn'))return; selectedRowIndex=i; document.querySelectorAll('#rows .row-item').forEach((el,idx)=>el.classList.toggle('selected', idx===i)); updateDbButtons(); });
 
     const img=row.querySelector('img.logo'); setAutoLogo(img,t);
 
+    // Nazwa + autocomplete
     const nameEl=row.querySelector('.name'), wrap=row.querySelector('.team'); let prevName=t.name; const acBox=makeACBox(wrap); let acData=[];
     const accept=item=>{ if(!item)return; nameEl.textContent=item.name; teams[i].name=item.name; setAutoLogo(img,teams[i]); acBox.style.display='none'; renderDbList(); setTimeout(()=>nameEl.blur(),0); };
     const showAC=()=>{ acData=suggestions(nameEl.textContent,i,8); renderAC(acBox,acData,accept); };
@@ -207,11 +242,53 @@ function render(){
     nameEl.addEventListener('keydown',e=>{ if(acBox.style.display==='block'){ if(e.key==='ArrowDown'){e.preventDefault();moveACSelection(acBox,+1);} else if(e.key==='ArrowUp'){e.preventDefault();moveACSelection(acBox,-1);} else if(e.key==='Enter'){e.preventDefault();accept(getACSelected(acBox,acData));} else if(e.key==='Escape'){e.preventDefault();hideAC();} }});
     nameEl.addEventListener('blur',()=>{ setTimeout(()=>hideAC(),120); const nn=nameEl.textContent.trim(); if(!nn){ teams[i].name=prevName; nameEl.textContent=prevName; renderDbList(); return; } if(isNameTaken(nn,i)){ nameEl.classList.add('name-dup'); setTimeout(()=>nameEl.classList.remove('name-dup'),800); teams[i].name=prevName; nameEl.textContent=prevName; setAutoLogo(img,teams[i]); renderDbList(); } else { teams[i].name=nn; renderDbList(); } });
 
+    // Punkty – pewny fokus i miękka walidacja
     const pts=row.querySelector('.pts');
-    pts.addEventListener('focus',e=>{ if(e.currentTarget.textContent.trim()==='0') e.currentTarget.textContent=''; const r=document.createRange(), s=window.getSelection(); r.selectNodeContents(e.currentTarget); r.collapse(false); s.removeAllRanges(); s.addRange(r); });
-    pts.addEventListener('input',e=>{ const v=e.currentTarget.textContent.replace(/[^\d-]/g,''); e.currentTarget.textContent=v; teams[i].pts=Number(v||0); const r=document.createRange(), s=window.getSelection(); r.selectNodeContents(e.currentTarget); r.collapse(false); s.removeAllRanges(); s.addRange(r); });
-    pts.addEventListener('blur',e=>{ let v=e.currentTarget.textContent.replace(/[^\d-]/g,''); if(v==='') v='0'; e.currentTarget.textContent=v; teams[i].pts=Number(v); });
+    const ptsCell = row.querySelector('.points');
 
+    // Pewny fokus przy mousedown (działa lepiej niż click)
+    ptsCell.addEventListener('mousedown', e=>{ if(e.target!==pts){ e.preventDefault(); e.stopPropagation(); pts.focus(); } });
+    pts.addEventListener('mousedown', e=>{ e.stopPropagation(); });
+
+    // Focus: zaznacz całość
+    pts.addEventListener('focus',e=>{
+      const r=document.createRange(), s=window.getSelection();
+      r.selectNodeContents(e.currentTarget);
+      s.removeAllRanges(); s.addRange(r);
+    });
+
+    // beforeinput: blokuj niedozwolone znaki (jeśli wspierane)
+    pts.addEventListener('beforeinput', e=>{
+      if(e.inputType==='insertText'){
+        const ch=e.data||'';
+        if(!/[\d]/.test(ch)){ e.preventDefault(); }
+      }else if(e.inputType==='insertFromPaste'){
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        const clean = (text.match(/-?\d+/)?.[0]||'');
+        document.execCommand('insertText', false, clean);
+      }
+    });
+
+    // input: aktualizuj stan, nie “czyść” na żywo (żeby nie psuć caret)
+    pts.addEventListener('input',e=>{
+      const raw=e.currentTarget.textContent;
+      const v=(raw.match(/-?\d+/)?.[0]||'');
+      teams[i].pts = Number(v||0);
+    });
+
+    // Enter kończy edycję
+    pts.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); pts.blur(); } });
+
+    // blur: finalne czyszczenie i zapis
+    pts.addEventListener('blur',e=>{
+      const raw=e.currentTarget.textContent;
+      const v=(raw.match(/-?\d+/)?.[0]||'0');
+      e.currentTarget.textContent=v;
+      teams[i].pts=Number(v);
+    });
+
+    // Akcje wiersza
     row.querySelectorAll('.row-actions .icon-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{ const a=btn.dataset.act;
         if(a==='up'&&i>0){ const t0=teams[i-1]; teams[i-1]=teams[i]; teams[i]=t0; lastTeamCount=teams.length; render(); }
@@ -292,12 +369,11 @@ function updateCountryPillsUI(){ document.querySelectorAll('#countryFilter .coun
 document.querySelectorAll('#countryFilter .country-pill').forEach(btn=>btn.addEventListener('click',()=>{ const c=btn.dataset.country; selectedCountry=(c==='__clear')?null:(selectedCountry===c?null:c); updateCountryPillsUI(); renderDbList(); }));
 updateCountryPillsUI();
 
-/* ---------- Drop z bazy na tabelę [ZMIANA] ---------- */
+/* ---------- Drop z bazy na tabelę ---------- */
 rowsEl.addEventListener('dragover', e=>{
   const dt = e.dataTransfer;
   const types = dt?.types ? Array.from(dt.types) : [];
   const isClub = types.includes('text/club') || types.includes('application/x-club');
-  // Akceptujemy tylko drag z bazy klubów (unikamy konfliktu z SortableJS)
   if (!isClub) return;
 
   e.preventDefault();
@@ -314,7 +390,7 @@ rowsEl.addEventListener('drop', e=>{
   const isClub = types.includes('text/club') || types.includes('application/x-club');
 
   document.querySelectorAll('.row-item.db-over').forEach(el=>el.classList.remove('db-over'));
-  if (!isClub) return; // ignoruj drop niespełniający typu (np. sort w tabeli)
+  if (!isClub) return;
 
   e.preventDefault();
   const name = dt.getData('text/club') || dt.getData('application/x-club') || '';
@@ -336,58 +412,69 @@ btnSortPts.addEventListener('click', ()=>{
 });
 
 /* ---------- Ładowanie bazy + komunikat błędu ---------- */
+function tryInlineDb(){
+  const el=document.getElementById('dbInline');
+  if(!el) return null;
+  try{
+    const txt=el.textContent||'';
+    const arr=JSON.parse(txt);
+    return normalizeDbArray(arr);
+  }catch{ return null; }
+}
 async function loadDb(){
-  const box=document.getElementById('dbError'); const show=msg=>{ if(box){ box.style.display='block'; box.textContent='Błąd ładowania bazy: '+msg+' (używam listy zapasowej)'; } };
+  const box=document.getElementById('dbError');
+  const show=msg=>{ if(box){ box.style.display='block'; box.textContent='Błąd ładowania bazy: '+msg+' (używam alternatywy)'; } };
   const hide=()=>{ if(box){ box.style.display='none'; box.textContent=''; } };
 
-  try{
-    const res=await fetch(DB_URL+'?cb='+Date.now(),{cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status);
-    const txt=await res.text(); let arr;
-    try{ arr=JSON.parse(txt); }catch{ throw new Error('niepoprawny JSON (przecinki/UTF‑8)'); }
-
-    dbTeams=(Array.isArray(arr)?arr:[]).map(x=>{
-      if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
-      const cc=(x?.country||x?.c||'SZ').toUpperCase();
-      return { name:x?.name||'', tags:x?.tags??x?.tag??[], country:(cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ', countryName:x?.countryName||x?.cn||'' };
-    }).filter(t=>t.name);
-
-    // sort: ⚽+🏀 > ⚽ > 🏀 > (brak), potem alfabetycznie
+  const use = (arr)=>{
+    dbTeams = normalizeDbArray(arr);
     const rank=t=>{ const e=getEmotesFromTags(t.tags); if(e.includes('⚽')&&e.includes('🏀'))return 2; if(e.includes('⚽'))return 1; if(e.includes('🏀'))return 0; return -1; };
     dbTeams.sort((a,b)=>{ const ra=rank(a), rb=rank(b); if(ra!==rb) return rb-ra; return a.name.localeCompare(b.name,'pl'); });
+  };
 
-    hide();
+  try{
+    // 1) inline JSON
+    const inline = tryInlineDb();
+    if (inline && inline.length){
+      use(inline); hide(); renderDbList(); return;
+    }
+
+    // 2) fetch (online)
+    if (location.protocol !== 'file:'){
+      const res=await fetch(DB_URL+'?cb='+Date.now(),{cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const txt=await res.text(); let arr;
+      try{ arr=JSON.parse(txt); }catch{ throw new Error('niepoprawny JSON (przecinki/UTF‑8)'); }
+      use(arr); hide(); renderDbList(); return;
+    }
+
+    // 3) file:// bez inline – brak fetch → fallback
+    show('środowisko file:// – używam bazy wbudowanej'); use(EMBEDDED_DB);
   }catch(e){
-    show(e.message||'nieznany błąd');
-    dbTeams = defaultTeams.map(t=>({name:t.name,tags:[],country:'SZ'}));
+    show(e.message||'nieznany błąd'); use(EMBEDDED_DB);
   }
   renderDbList();
 }
 
-/* ---------- Eksporty ---------- */
-const waitForImages = node => Promise.all([...node.querySelectorAll('img')].map(img=>new Promise(r=>{ if(img.complete&&img.naturalWidth>0)return r(); img.addEventListener('load',r,{once:true}); img.addEventListener('error',r,{once:true}); })));
-
-document.getElementById('btnExport').addEventListener('click', async ()=>{
-  const stage=document.getElementById('stage'); stage.classList.add('exporting');
-  await waitForImages(stage); await new Promise(r=>requestAnimationFrame(r));
-  try{
-    const url=await htmlToImage.toJpeg(stage,{quality:.95,backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#f2f6fb',width:1920,height:1080,pixelRatio:1,preferCSSPageSize:true,cacheBust:true,imagePlaceholder:PLACEHOLDER_SVG});
-    const a=document.createElement('a'); a.href=url; a.download=`tabela_${new Date().toISOString().slice(0,10)}.jpg`; a.click();
-  }finally{ stage.classList.remove('exporting'); }
-});
-
-document.getElementById('btnExportAll').addEventListener('click', async ()=>{
-  const stage=document.getElementById('stage'), rows=document.getElementById('rows');
-  const prevH=stage.style.height, prevOv=rows.style.overflow, prevAuto=rows.style.gridAutoRows, hadScroll=rows.classList.contains('scroll');
-  stage.classList.add('export-all','exporting'); stage.style.height='auto'; rows.classList.remove('scroll'); rows.style.overflow='visible'; rows.style.gridAutoRows=getComputedStyle(document.documentElement).getPropertyValue('--rowH')||'86px';
-  await waitForImages(stage); await new Promise(r=>requestAnimationFrame(r));
-  try{
-    const rect=stage.getBoundingClientRect();
-    const url=await htmlToImage.toJpeg(stage,{quality:.95,backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#f2f6fb',width:Math.round(rect.width),height:Math.round(stage.scrollHeight),pixelRatio:1,cacheBust:true,imagePlaceholder:PLACEHOLDER_SVG});
-    const a=document.createElement('a'); a.href=url; a.download=`tabela_full_${new Date().toISOString().slice(0,10)}.jpg`; a.click();
-  }finally{
-    stage.classList.remove('export-all','exporting'); stage.style.height=prevH||''; if(hadScroll) rows.classList.add('scroll'); rows.style.overflow=prevOv||''; rows.style.gridAutoRows=prevAuto||'';
-  }
-});
+/* ---------- Import pliku JSON (offline) ---------- */
+if (btnLoadDb && fileDbEl){
+  btnLoadDb.addEventListener('click', ()=>fileDbEl.click());
+  fileDbEl.addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    try{
+      const txt = await file.text();
+      const arr = JSON.parse(txt);
+      dbTeams = normalizeDbArray(arr);
+      renderDbList();
+      const box=document.getElementById('dbError'); if(box){ box.style.display='none'; box.textContent=''; }
+    }catch(err){
+      alert('Nie udało się wczytać pliku JSON: '+(err.message||err));
+    }finally{
+      fileDbEl.value='';
+    }
+  });
+}
 
 // Panel/baza – nasłuchy
 document.getElementById('btnAdd').addEventListener('click', ()=>{ teams.push({name:"Nowa drużyna", pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); });
@@ -397,7 +484,6 @@ inPodium.addEventListener('input', ()=>coerceSettings('podium'));
 inPlayoff.addEventListener('input', ()=>coerceSettings('playoff'));
 inReleg.addEventListener('input', ()=>coerceSettings('releg'));
 
-// [ZMIANA] – dodatkowe nasłuchy "change"
 inPodium.addEventListener('change', ()=>coerceSettings('podium'));
 inPlayoff.addEventListener('change', ()=>coerceSettings('playoff'));
 inReleg.addEventListener('change', ()=>coerceSettings('releg'));
@@ -407,5 +493,5 @@ btnDbAdd.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(!
 btnDbReplace.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1||!c) return; const e=teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name)); if(e!==-1 && e!==selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; } teams[selectedRowIndex]={name:c.name, pts:teams[selectedRowIndex].pts||0}; coerceSettings('auto'); });
 
 // Start
-coerceSettings('auto'); // inicjalna korekta
+coerceSettings('auto');
 loadDb();
