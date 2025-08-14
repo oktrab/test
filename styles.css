@@ -122,3 +122,25 @@ body{
 
 /* Footer */
 .site-footer{padding:12px 18px 18px;text-align:right;font-weight:700;color:#a9b6cb}
+
+/* Pomoc / Legenda */
+.help{margin-top:12px;background:#0b1222;border:1px solid #223055;border-radius:12px;padding:10px}
+.help summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;color:#e5ecf8;list-style:none}
+.help summary::-webkit-details-marker{display:none}
+.help .chev{transition:transform .2s ease}
+.help[open] .chev{transform:rotate(180deg)}
+.help-grid{margin-top:10px;display:grid;gap:10px}
+.help-sec{background:#0f1628;border:1px dashed #223055;border-radius:10px;padding:8px 10px;color:#d7e1f3}
+.help-sec h4{margin:0 0 6px;font-size:12px;color:#a9b6cb;text-transform:uppercase;letter-spacing:.04em}
+.help-sec ul{margin:0;padding-left:18px}
+.help-sec li{margin:4px 0;font-size:13px;line-height:1.25}
+.help kbd{display:inline-block;padding:2px 6px;border:1px solid #223055;border-bottom-width:2px;border-radius:6px;background:#0b1222;color:#e5ecf8;font:700 12px/1 Inter,system-ui,Arial}
+.help .chip{vertical-align:middle;margin:0 4px 0 6px}
+
+/* Sekcje rozwijane (Ustawienia, Baza klubów) */
+.sec{margin-top:12px;background:#0b1222;border:1px solid #223055;border-radius:12px;padding:10px}
+.sec summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;color:#e5ecf8;list-style:none}
+.sec summary::-webkit-details-marker{display:none}
+.sec .chev{transition:transform .2s ease}
+.sec[open] .chev{transform:rotate(180deg)}
+.sec > *:not(summary){margin-top:8px}

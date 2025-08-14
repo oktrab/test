@@ -62,6 +62,22 @@ const btnDbReplace = document.getElementById('btnDbReplace');
 const btnSortPts = document.getElementById('btnSortPts');
 const btnLoadDb  = document.getElementById('btnLoadDb');
 const fileDbEl   = document.getElementById('fileDb');
+const stageEl    = document.getElementById('stage');
+const titleEl    = document.getElementById('leagueTitle');
+// Sekcje rozwijane
+const secSettings = document.getElementById('secSettings');
+const secDb       = document.getElementById('secDb');
+const helpBox     = document.getElementById('helpBox');
+
+// LocalStorage z TTL (24h i 30 dni)
+const ONE_DAY = 24*60*60*1000;
+const THIRTY_DAYS = 30*ONE_DAY;
+const LS_KEYS = { state:'liga_state_v1', dbOverride:'db_override_v1', panels:'ui_panels_v1' };
+const storage = {
+  set:(k,data,ttl=ONE_DAY)=>{ try{ localStorage.setItem(k, JSON.stringify({ts:Date.now(), ttl, data})); }catch{} },
+  get:(k)=>{ try{ const raw=localStorage.getItem(k); if(!raw) return null; const o=JSON.parse(raw); if(o?.ttl && Date.now()-o.ts>o.ttl){ localStorage.removeItem(k); return null; } return o?.data??null; }catch{return null;} },
+  clear:(k)=>{ try{ localStorage.removeItem(k); }catch{} }
+};
 
 // Helpers
 const buildLogoUrl = name => `${LOGO_PATH}/${encodeURIComponent(name.trim())}.png`;
@@ -97,23 +113,38 @@ function normalizeDbArray(rawArr){
   }).filter(t=>t.name);
 }
 
-// Klasy wiersza (podium + baraże od góry + spadki)
-function classForIndex(i){
+// Efektywne ustawienia (po clampach)
+function effectiveSettings(){
   const n = teams.length;
   let podium  = Math.min(3, Math.max(1, +inPodium.value|0));
   let playoff = Math.max(0, +inPlayoff.value|0);
   let releg   = Math.max(0, +inReleg.value|0);
-
-  // twarde ograniczenie względem "space"
   const space = Math.max(0, n - podium);
   if (playoff > space) playoff = space;
   if (releg   > space) releg   = space;
   if (playoff + releg > space){
     releg = Math.max(0, Math.min(releg, space - playoff));
-    if (playoff + releg > space){
-      playoff = Math.max(0, space - releg);
-    }
+    if (playoff + releg > space) playoff = Math.max(0, space - releg);
   }
+  return { podium, playoff, releg, space, n };
+}
+
+// Licznik miejsc neutralnych (UI)
+const slotsInfoEl = (()=>{ 
+  const el=document.createElement('div'); el.id='slotsInfo'; el.className='note';
+  const panel=document.querySelector('.panel'); const sep=panel.querySelector('.sep');
+  if (sep) panel.insertBefore(el, sep); else panel.appendChild(el);
+  return el;
+})();
+function updateSlotsInfoUI(){
+  const {podium, playoff, releg, space, n} = effectiveSettings();
+  const neutral = Math.max(0, space - playoff - releg);
+  slotsInfoEl.textContent = `Podium: ${podium} • Baraże: ${playoff} • Spadki: ${releg} • Neutralne: ${neutral} (z ${n})`;
+}
+
+// Klasy wiersza (podium + baraże od góry + spadki)
+function classForIndex(i){
+  const {podium, playoff, releg, n} = effectiveSettings();
 
   if (i===0) return 'first';
   if (i===1 && podium>=2) return 'second';
@@ -121,7 +152,6 @@ function classForIndex(i){
 
   const startTopPlayoff = Math.min(podium, 3);
   if (playoff>0 && i>=startTopPlayoff && i<startTopPlayoff+playoff) return 'playoff';
-
   if (releg>0 && i>=n-releg) return 'releg';
   return '';
 }
@@ -164,6 +194,28 @@ function coerceSettings(trigger='auto', silent=false){
   inReleg.max   = space;
 
   if (!silent) render();
+  updateSlotsInfoUI();
+}
+
+// Autosave (TTL 24h)
+let saveTimer=null;
+function saveState(){
+  const state = {
+    teams: teams.map(t=>({name:t.name, pts:+t.pts||0})),
+    settings: { podium:+inPodium.value|0, playoff:+inPlayoff.value|0, releg:+inReleg.value|0 },
+    title: titleEl ? titleEl.textContent.trim() : 'Tabela ligowa'
+  };
+  storage.set(LS_KEYS.state, state, ONE_DAY);
+}
+function scheduleSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(saveState, 500); }
+function loadSavedState(){
+  const s=storage.get(LS_KEYS.state);
+  if(!s) return false;
+  if(Array.isArray(s.teams)) teams = s.teams.map(x=>({name:String(x.name||''), pts:Number(x.pts||0)}));
+  if(s.settings){ inPodium.value=s.settings.podium??inPodium.value; inPlayoff.value=s.settings.playoff??inPlayoff.value; inReleg.value=s.settings.releg??inReleg.value; }
+  if(titleEl && s.title) titleEl.textContent=s.title;
+  lastTeamCount=teams.length;
+  return true;
 }
 
 /* ---------- SortableJS (kolejność) ---------- */
@@ -179,7 +231,7 @@ function initDnD(){
         if(e.oldIndex<selectedRowIndex && e.newIndex>=selectedRowIndex) selectedRowIndex-=1;
         else if(e.oldIndex>selectedRowIndex && e.newIndex<=selectedRowIndex) selectedRowIndex+=1;
       }
-      render();
+      render(); scheduleSave();
     }
   });
 }
@@ -209,6 +261,7 @@ const getACSelected=(box,data)=>{ const sel=box.querySelector('.ac-item.selected
 
 /* ---------- Render tabeli ---------- */
 function render(){
+  // auto-korekta TYLKO, gdy zmieniła się liczba drużyn
   if (teams.length !== lastTeamCount){
     lastTeamCount = teams.length;
     coerceSettings('auto', true);
@@ -233,35 +286,29 @@ function render(){
 
     // Nazwa + autocomplete
     const nameEl=row.querySelector('.name'), wrap=row.querySelector('.team'); let prevName=t.name; const acBox=makeACBox(wrap); let acData=[];
-    const accept=item=>{ if(!item)return; nameEl.textContent=item.name; teams[i].name=item.name; setAutoLogo(img,teams[i]); acBox.style.display='none'; renderDbList(); setTimeout(()=>nameEl.blur(),0); };
+    const accept=item=>{ if(!item)return; nameEl.textContent=item.name; teams[i].name=item.name; setAutoLogo(img,teams[i]); acBox.style.display='none'; renderDbList(); setTimeout(()=>nameEl.blur(),0); scheduleSave(); };
     const showAC=()=>{ acData=suggestions(nameEl.textContent,i,8); renderAC(acBox,acData,accept); };
     const hideAC=()=>{ acBox.style.display='none'; };
 
     nameEl.addEventListener('focus',()=>{ prevName=teams[i].name; showAC(); });
     nameEl.addEventListener('input',e=>{ teams[i].name=e.currentTarget.textContent.trim(); setAutoLogo(img,teams[i]); showAC(); });
     nameEl.addEventListener('keydown',e=>{ if(acBox.style.display==='block'){ if(e.key==='ArrowDown'){e.preventDefault();moveACSelection(acBox,+1);} else if(e.key==='ArrowUp'){e.preventDefault();moveACSelection(acBox,-1);} else if(e.key==='Enter'){e.preventDefault();accept(getACSelected(acBox,acData));} else if(e.key==='Escape'){e.preventDefault();hideAC();} }});
-    nameEl.addEventListener('blur',()=>{ setTimeout(()=>hideAC(),120); const nn=nameEl.textContent.trim(); if(!nn){ teams[i].name=prevName; nameEl.textContent=prevName; renderDbList(); return; } if(isNameTaken(nn,i)){ nameEl.classList.add('name-dup'); setTimeout(()=>nameEl.classList.remove('name-dup'),800); teams[i].name=prevName; nameEl.textContent=prevName; setAutoLogo(img,teams[i]); renderDbList(); } else { teams[i].name=nn; renderDbList(); } });
+    nameEl.addEventListener('blur',()=>{ setTimeout(()=>hideAC(),120); const nn=nameEl.textContent.trim(); if(!nn){ teams[i].name=prevName; nameEl.textContent=prevName; renderDbList(); return; } if(isNameTaken(nn,i)){ nameEl.classList.add('name-dup'); setTimeout(()=>nameEl.classList.remove('name-dup'),800); teams[i].name=prevName; nameEl.textContent=prevName; setAutoLogo(img,teams[i]); renderDbList(); } else { teams[i].name=nn; renderDbList(); } scheduleSave(); });
 
     // Punkty – pewny fokus i miękka walidacja
     const pts=row.querySelector('.pts');
     const ptsCell = row.querySelector('.points');
 
-    // Pewny fokus przy mousedown (działa lepiej niż click)
     ptsCell.addEventListener('mousedown', e=>{ if(e.target!==pts){ e.preventDefault(); e.stopPropagation(); pts.focus(); } });
     pts.addEventListener('mousedown', e=>{ e.stopPropagation(); });
 
-    // Focus: zaznacz całość
     pts.addEventListener('focus',e=>{
       const r=document.createRange(), s=window.getSelection();
-      r.selectNodeContents(e.currentTarget);
-      s.removeAllRanges(); s.addRange(r);
+      r.selectNodeContents(e.currentTarget); s.removeAllRanges(); s.addRange(r);
     });
-
-    // beforeinput: blokuj niedozwolone znaki (jeśli wspierane)
     pts.addEventListener('beforeinput', e=>{
       if(e.inputType==='insertText'){
-        const ch=e.data||'';
-        if(!/[\d]/.test(ch)){ e.preventDefault(); }
+        const ch=e.data||''; if(!/[\d]/.test(ch)){ e.preventDefault(); }
       }else if(e.inputType==='insertFromPaste'){
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
@@ -269,31 +316,26 @@ function render(){
         document.execCommand('insertText', false, clean);
       }
     });
-
-    // input: aktualizuj stan, nie “czyść” na żywo (żeby nie psuć caret)
     pts.addEventListener('input',e=>{
       const raw=e.currentTarget.textContent;
       const v=(raw.match(/-?\d+/)?.[0]||'');
       teams[i].pts = Number(v||0);
     });
-
-    // Enter kończy edycję
     pts.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); pts.blur(); } });
-
-    // blur: finalne czyszczenie i zapis
     pts.addEventListener('blur',e=>{
       const raw=e.currentTarget.textContent;
       const v=(raw.match(/-?\d+/)?.[0]||'0');
       e.currentTarget.textContent=v;
       teams[i].pts=Number(v);
+      scheduleSave();
     });
 
     // Akcje wiersza
     row.querySelectorAll('.row-actions .icon-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{ const a=btn.dataset.act;
-        if(a==='up'&&i>0){ const t0=teams[i-1]; teams[i-1]=teams[i]; teams[i]=t0; lastTeamCount=teams.length; render(); }
-        if(a==='down'&&i<teams.length-1){ const t0=teams[i+1]; teams[i+1]=teams[i]; teams[i]=t0; lastTeamCount=teams.length; render(); }
-        if(a==='del'){ teams.splice(i,1); if(selectedRowIndex===i) selectedRowIndex=-1; lastTeamCount=teams.length; render(); }
+        if(a==='up'&&i>0){ const t0=teams[i-1]; teams[i-1]=teams[i]; teams[i]=t0; lastTeamCount=teams.length; render(); scheduleSave(); }
+        if(a==='down'&&i<teams.length-1){ const t0=teams[i+1]; teams[i+1]=teams[i]; teams[i]=t0; lastTeamCount=teams.length; render(); scheduleSave(); }
+        if(a==='del'){ teams.splice(i,1); if(selectedRowIndex===i) selectedRowIndex=-1; lastTeamCount=teams.length; render(); scheduleSave(); }
         updateDbButtons();
       });
     });
@@ -304,7 +346,7 @@ function render(){
   rowsEl.classList.toggle('scroll', teams.length>12);
   initDnD();
   updateDbButtons();
-  requestAnimationFrame(renderDbList);
+  requestAnimationFrame(()=>{ renderDbList(); updateSlotsInfoUI(); });
 }
 
 /* ---------- Panel: stany ---------- */
@@ -401,29 +443,47 @@ rowsEl.addEventListener('drop', e=>{
   const exist=teams.findIndex(x=>normalizeName(x.name)===normalizeName(name));
   if(exist!==-1 && exist!==idx) return;
   if(normalizeName(teams[idx].name)===normalizeName(name)) return;
-  teams[idx].name=name; lastTeamCount=teams.length; render();
+  teams[idx].name=name; lastTeamCount=teams.length; render(); scheduleSave();
 });
+
+/* ---------- Drop z bazy na scenę (dodaj na koniec) ---------- */
+if (stageEl){
+  stageEl.addEventListener('dragover', e=>{
+    const dt=e.dataTransfer, types=dt?.types?Array.from(dt.types):[];
+    const isClub=types.includes('text/club')||types.includes('application/x-club');
+    if(!isClub) return;
+    if (e.target.closest('.row-item')) return; // nie przeszkadzaj w dropie na wiersz
+    e.preventDefault();
+  });
+  stageEl.addEventListener('drop', e=>{
+    const dt=e.dataTransfer, types=dt?.types?Array.from(dt.types):[];
+    const isClub=types.includes('text/club')||types.includes('application/x-club');
+    if(!isClub) return;
+    if (e.target.closest('.row-item')) return;
+    e.preventDefault();
+    const name=dt.getData('text/club')||dt.getData('application/x-club')||'';
+    if(!name) return;
+    if(teams.findIndex(t=>normalizeName(t.name)===normalizeName(name))!==-1) return; // duplikat
+    teams.push({name, pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); scheduleSave();
+  });
+}
 
 /* ---------- Sortowanie po punktach ---------- */
 btnSortPts.addEventListener('click', ()=>{
   if (sortMode==='none' || sortMode==='asc'){ sortMode='desc'; teams.sort((a,b)=>b.pts-a.pts); btnSortPts.textContent='↓'; }
   else { sortMode='asc'; teams.sort((a,b)=>a.pts-b.pts); btnSortPts.textContent='↑'; }
-  render();
+  render(); scheduleSave();
 });
 
 /* ---------- Ładowanie bazy + komunikat błędu ---------- */
 function tryInlineDb(){
   const el=document.getElementById('dbInline');
   if(!el) return null;
-  try{
-    const txt=el.textContent||'';
-    const arr=JSON.parse(txt);
-    return normalizeDbArray(arr);
-  }catch{ return null; }
+  try{ const txt=el.textContent||''; const arr=JSON.parse(txt); return normalizeDbArray(arr); }catch{ return null; }
 }
 async function loadDb(){
   const box=document.getElementById('dbError');
-  const show=msg=>{ if(box){ box.style.display='block'; box.textContent='Błąd ładowania bazy: '+msg+' (używam alternatywy)'; } };
+  const show=msg=>{ if(box){ box.style.display='block'; box.textContent=msg; } };
   const hide=()=>{ if(box){ box.style.display='none'; box.textContent=''; } };
 
   const use = (arr)=>{
@@ -433,9 +493,15 @@ async function loadDb(){
   };
 
   try{
-    // 1) inline JSON
+    // 0) Override z localStorage (plik użytkownika) – ważny 24h, ignoruj puste
+    const ov = storage.get(LS_KEYS.dbOverride);
+    if (Array.isArray(ov) && ov.length>0){
+      use(ov); show('Używam wczytanej bazy (lokalnie, wygaśnie po 24h).'); renderDbList(); return;
+    }
+
+    // 1) Inline JSON
     const inline = tryInlineDb();
-    if (inline && inline.length){
+    if (Array.isArray(inline) && inline.length>0){
       use(inline); hide(); renderDbList(); return;
     }
 
@@ -445,18 +511,20 @@ async function loadDb(){
       if(!res.ok) throw new Error('HTTP '+res.status);
       const txt=await res.text(); let arr;
       try{ arr=JSON.parse(txt); }catch{ throw new Error('niepoprawny JSON (przecinki/UTF‑8)'); }
-      use(arr); hide(); renderDbList(); return;
+      if (Array.isArray(arr) && arr.length>0){ use(arr); hide(); renderDbList(); return; }
+      // Pusta → fallback
+      show('Pusta baza z serwera – używam bazy wbudowanej.'); use(EMBEDDED_DB); renderDbList(); return;
     }
 
-    // 3) file:// bez inline – brak fetch → fallback
-    show('środowisko file:// – używam bazy wbudowanej'); use(EMBEDDED_DB);
+    // 3) file:// – fallback
+    show('Środowisko file:// – używam bazy wbudowanej.'); use(EMBEDDED_DB);
   }catch(e){
-    show(e.message||'nieznany błąd'); use(EMBEDDED_DB);
+    show('Błąd ładowania bazy: '+(e.message||'nieznany')+' – używam bazy wbudowanej.'); use(EMBEDDED_DB);
   }
   renderDbList();
 }
 
-/* ---------- Import pliku JSON (offline) ---------- */
+/* ---------- Import pliku JSON (offline, +TTL 24h) ---------- */
 if (btnLoadDb && fileDbEl){
   btnLoadDb.addEventListener('click', ()=>fileDbEl.click());
   fileDbEl.addEventListener('change', async (e)=>{
@@ -465,9 +533,12 @@ if (btnLoadDb && fileDbEl){
     try{
       const txt = await file.text();
       const arr = JSON.parse(txt);
-      dbTeams = normalizeDbArray(arr);
+      const norm = normalizeDbArray(arr);
+      if (!norm.length) throw new Error('Plik JSON nie zawiera klubów.');
+      dbTeams = norm;
+      storage.set(LS_KEYS.dbOverride, dbTeams, ONE_DAY); // zapisz (24h)
       renderDbList();
-      const box=document.getElementById('dbError'); if(box){ box.style.display='none'; box.textContent=''; }
+      const box=document.getElementById('dbError'); if(box){ box.style.display='block'; box.textContent='Załadowano własną bazę (lokalnie, wygaśnie po 24h).'; }
     }catch(err){
       alert('Nie udało się wczytać pliku JSON: '+(err.message||err));
     }finally{
@@ -476,22 +547,115 @@ if (btnLoadDb && fileDbEl){
   });
 }
 
+/* ---------- Eksporty ---------- */
+const waitForImages = node => Promise.all([...node.querySelectorAll('img')].map(img=>new Promise(r=>{ if(img.complete&&img.naturalWidth>0)return r(); img.addEventListener('load',r,{once:true}); img.addEventListener('error',r,{once:true}); })));
+
+document.getElementById('btnExport').addEventListener('click', async ()=>{
+  const stage=document.getElementById('stage'); stage.classList.add('exporting');
+  await waitForImages(stage); await new Promise(r=>requestAnimationFrame(r));
+  try{
+    const url=await htmlToImage.toJpeg(stage,{quality:.95,backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#f2f6fb',width:1920,height:1080,pixelRatio:1,preferCSSPageSize:true,cacheBust:true,imagePlaceholder:PLACEHOLDER_SVG});
+    const a=document.createElement('a'); a.href=url; a.download=`tabela_${new Date().toISOString().slice(0,10)}.jpg`; a.click();
+  }finally{ stage.classList.remove('exporting'); }
+});
+
+document.getElementById('btnExportAll').addEventListener('click', async ()=>{
+  const stage=document.getElementById('stage'), rows=document.getElementById('rows');
+  const prevH=stage.style.height, prevOv=rows.style.overflow, prevAuto=rows.style.gridAutoRows, hadScroll=rows.classList.contains('scroll');
+  stage.classList.add('export-all','exporting'); stage.style.height='auto'; rows.classList.remove('scroll'); rows.style.overflow='visible'; rows.style.gridAutoRows=getComputedStyle(document.documentElement).getPropertyValue('--rowH')||'86px';
+  await waitForImages(stage); await new Promise(r=>requestAnimationFrame(r));
+  try{
+    const rect=stage.getBoundingClientRect();
+    const url=await htmlToImage.toJpeg(stage,{quality:.95,backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg')||'#f2f6fb',width:Math.round(rect.width),height:Math.round(stage.scrollHeight),pixelRatio:1,cacheBust:true,imagePlaceholder:PLACEHOLDER_SVG});
+    const a=document.createElement('a'); a.href=url; a.download=`tabela_full_${new Date().toISOString().slice(0,10)}.jpg`; a.click();
+  }finally{
+    stage.classList.remove('export-all','exporting'); stage.style.height=prevH||''; if(hadScroll) rows.classList.add('scroll'); rows.style.overflow=prevOv||''; rows.style.gridAutoRows=prevAuto||'';
+  }
+});
+
 // Panel/baza – nasłuchy
-document.getElementById('btnAdd').addEventListener('click', ()=>{ teams.push({name:"Nowa drużyna", pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); });
-document.getElementById('btnReset').addEventListener('click', ()=>{ teams=JSON.parse(JSON.stringify(defaultTeams)); selectedRowIndex=-1; sortMode='none'; btnSortPts.textContent='↕'; lastTeamCount=teams.length; coerceSettings('auto'); });
+document.getElementById('btnAdd').addEventListener('click', ()=>{ teams.push({name:"Nowa drużyna", pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); scheduleSave(); });
+document.getElementById('btnReset').addEventListener('click', ()=>{ teams=JSON.parse(JSON.stringify(defaultTeams)); selectedRowIndex=-1; sortMode='none'; btnSortPts.textContent='↕'; lastTeamCount=teams.length; coerceSettings('auto'); storage.clear(LS_KEYS.state); });
 
-inPodium.addEventListener('input', ()=>coerceSettings('podium'));
-inPlayoff.addEventListener('input', ()=>coerceSettings('playoff'));
-inReleg.addEventListener('input', ()=>coerceSettings('releg'));
+inPodium.addEventListener('input', ()=>{ coerceSettings('podium'); scheduleSave(); });
+inPlayoff.addEventListener('input', ()=>{ coerceSettings('playoff'); scheduleSave(); });
+inReleg.addEventListener('input', ()=>{ coerceSettings('releg'); scheduleSave(); });
 
-inPodium.addEventListener('change', ()=>coerceSettings('podium'));
-inPlayoff.addEventListener('change', ()=>coerceSettings('playoff'));
-inReleg.addEventListener('change', ()=>coerceSettings('releg'));
+inPodium.addEventListener('change', ()=>{ coerceSettings('podium'); scheduleSave(); });
+inPlayoff.addEventListener('change', ()=>{ coerceSettings('playoff'); scheduleSave(); });
+inReleg.addEventListener('change', ()=>{ coerceSettings('releg'); scheduleSave(); });
 
 dbSearchEl.addEventListener('input', renderDbList);
-btnDbAdd.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(!c) return; if(teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name))!==-1){ alert('Ta drużyna już jest w tabeli.'); return; } teams.push({name:c.name, pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); });
-btnDbReplace.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1||!c) return; const e=teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name)); if(e!==-1 && e!==selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; } teams[selectedRowIndex]={name:c.name, pts:teams[selectedRowIndex].pts||0}; coerceSettings('auto'); });
+btnDbAdd.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(!c) return; if(teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name))!==-1){ alert('Ta drużyna już jest w tabeli.'); return; } teams.push({name:c.name, pts:0}); lastTeamCount=teams.length; coerceSettings('auto'); scheduleSave(); });
+btnDbReplace.addEventListener('click', ()=>{ const c=dbFiltered[dbSelectedIdx]; if(selectedRowIndex===-1||!c) return; const e=teams.findIndex(t=>normalizeName(t.name)===normalizeName(c.name)); if(e!==-1 && e!==selectedRowIndex){ alert('Ta drużyna już jest w tabeli.'); return; } teams[selectedRowIndex]={name:c.name, pts:teams[selectedRowIndex].pts||0}; coerceSettings('auto'); scheduleSave(); });
+
+// Tytuł – autosave
+if (titleEl){
+  let tmr=null;
+  titleEl.addEventListener('input', ()=>{ clearTimeout(tmr); tmr=setTimeout(saveState, 400); });
+  titleEl.addEventListener('blur', saveState);
+}
+
+/* ---------- Skróty klawiszowe ---------- */
+document.addEventListener('keydown', (e)=>{
+  // nie przechwytuj, gdy edytujemy contenteditable/inputs
+  const ae=document.activeElement;
+  if (ae && (ae.isContentEditable || /^(input|textarea|select)$/i.test(ae.tagName))) return;
+
+  if (e.ctrlKey && e.key.toLowerCase()==='s'){ e.preventDefault(); document.getElementById('btnExport')?.click(); }
+  else if (e.ctrlKey && e.key.toLowerCase()==='f'){ e.preventDefault(); dbSearchEl?.focus(); }
+  else if (e.key==='Delete' && selectedRowIndex!==-1){
+    teams.splice(selectedRowIndex,1);
+    if(selectedRowIndex>=teams.length) selectedRowIndex=teams.length-1;
+    lastTeamCount=teams.length; render(); scheduleSave();
+  }
+  else if (e.key==='ArrowDown'){
+    if (selectedRowIndex<teams.length-1){ selectedRowIndex=(selectedRowIndex<0?0:selectedRowIndex+1); render(); }
+    e.preventDefault();
+  }
+  else if (e.key==='ArrowUp'){
+    if (selectedRowIndex>0){ selectedRowIndex=(selectedRowIndex<0?0:selectedRowIndex-1); render(); }
+    e.preventDefault();
+  }
+  else if ((e.altKey||e.metaKey) && e.key==='ArrowUp' && selectedRowIndex>0){
+    const i=selectedRowIndex; const t0=teams[i-1]; teams[i-1]=teams[i]; teams[i]=t0; selectedRowIndex=i-1; render(); scheduleSave(); e.preventDefault();
+  }
+  else if ((e.altKey||e.metaKey) && e.key==='ArrowDown' && selectedRowIndex<teams.length-1){
+    const i=selectedRowIndex; const t0=teams[i+1]; teams[i+1]=teams[i]; teams[i]=t0; selectedRowIndex=i+1; render(); scheduleSave(); e.preventDefault();
+  }
+  else if (e.key==='Enter' && selectedRowIndex!==-1){
+    e.preventDefault();
+    const row=rowsEl.children[selectedRowIndex]; if(row){ row.querySelector('.pts')?.focus(); }
+  }
+});
+
+/* ---------- Zapamiętywanie stanu sekcji (30 dni) ---------- */
+function initPanelsState(){
+  const list = [
+    ['secSettings', secSettings],
+    ['secDb',       secDb],
+    ['helpBox',     helpBox]
+  ];
+  const saved = storage.get(LS_KEYS.panels) || {};
+
+  list.forEach(([key, el])=>{
+    if(!el) return;
+    // Przywróć zapisany stan
+    if (typeof saved[key] === 'boolean'){
+      if (saved[key]) el.setAttribute('open','');
+      else el.removeAttribute('open');
+    }
+    // Zapisuj na toggle
+    el.addEventListener('toggle', ()=>{
+      const data = storage.get(LS_KEYS.panels) || {};
+      data[key] = el.hasAttribute('open');
+      storage.set(LS_KEYS.panels, data, THIRTY_DAYS);
+    });
+  });
+}
 
 // Start
-coerceSettings('auto');
+initPanelsState();
+loadSavedState();
+coerceSettings('auto'); // inicjalna korekta i render
 loadDb();
