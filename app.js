@@ -2,7 +2,7 @@
 const DB_URL = 'kluby.json';
 const LOGO_PATH = 'herby';
 const PLACEHOLDER_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="100%" height="100%" rx="12" ry="12" fill="#e5e7eb"/><text x="50%" y="54%" text-anchor="middle" font-family="Inter, Arial" font-size="18" fill="#475569">LOGO</text></svg>');
-const COUNTRY_NAMES = { SZ: 'Szwajcaria', W: 'Wosterg', Z: 'Zephyria', A: 'Aleksandria' };
+const COUNTRY_NAMES = { SZ: 'Szwajcaria', W: 'Wosterg', I: 'Inne kraje' };
 
 // Wbudowany fallback (gdy fetch/inline/plik nie zadziała)
 const EMBEDDED_DB = [
@@ -61,8 +61,8 @@ const btnDbAdd   = document.getElementById('btnDbAdd');
 const btnDbReplace = document.getElementById('btnDbReplace');
 const btnSortPts = document.getElementById('btnSortPts');
 const btnLoadDb  = document.getElementById('btnLoadDb');
-const fileDbEl   = document.getElementById('fileDb');
 const btnDownloadDb = document.getElementById('btnDownloadDb');
+const fileDbEl   = document.getElementById('fileDb');
 const stageEl    = document.getElementById('stage');
 const titleEl    = document.getElementById('leagueTitle');
 // Sekcje rozwijane
@@ -110,18 +110,16 @@ const abbr = function(name){ return String(name||'').trim().split(/\s+/).map(fun
 const colorFor = function(name){ var h=0; var str=String(name||''); for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))%360; } return 'hsl(' + h + ' 70% 45%)'; };
 const uid = function(p){ return (p||'user') + ':' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); };
 
-// Kraj i tagi
+// Kraj klubu SZ/W/I
 const getCountryCode = t => {
-  const raw = (t && (t.country||t.c) || 'SZ').toUpperCase();
-  const cn = (t && (t.countryName||t.cn) || '').toLowerCase();
-  if (raw === 'I'){ // legacy – rozbij na Z/A
-    if (cn.includes('zephyr')) return 'Z';
-    if (cn.includes('aleks') || cn.includes('alex')) return 'A';
-    return 'Z';
-  }
-  return (raw==='SZ'||raw==='W'||raw==='Z'||raw==='A') ? raw : 'SZ';
+  const c = String((t && (t.country || t.c) || 'SZ')).toUpperCase();
+  return (c==='SZ' || c==='W' || c==='I') ? c : 'SZ';
 };
-const getCountryTitle = function(t){ var cc=getCountryCode(t); var base=COUNTRY_NAMES[cc]||cc; return cc==='I' && t && t.countryName ? base + ': ' + t.countryName : base; };
+const getCountryTitle = t => {
+  const cc = getCountryCode(t);
+  const base = COUNTRY_NAMES[cc] || cc;
+  return cc==='I' && t && t.countryName ? base + ': ' + t.countryName : base;
+};
 function getEmotesFromTags(raw){
   var arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
   return arr.map(function(x){ return String(x||'').trim(); }).filter(Boolean).map(function(x){
@@ -135,10 +133,11 @@ function normalizeDbArray(rawArr){
   return (Array.isArray(rawArr)?rawArr:[]).map(function(x){
     if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
     var cc=String((x && (x.country||x.c)) || 'SZ').toUpperCase();
+    cc = (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ';
     return {
       name: (x && x.name) || '',
       tags: (x && (x.tags!=null?x.tags:(x.tag!=null?x.tag:[]))) || [],
-      country: (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ',
+      country: cc,
       countryName: (x && (x.countryName||x.cn)) || ''
     };
   }).filter(function(t){ return t.name; });
@@ -383,13 +382,13 @@ function render(){
     });
     pts.addEventListener('input',function(e){
       var raw=e.currentTarget.textContent;
-      var v=(raw.match(/-?\d+/)||[''])[0];
+      var v=(raw.match(/-?\d+/) || [''])[0];
       teams[i].pts = Number(v||0);
     });
     pts.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); pts.blur(); } });
     pts.addEventListener('blur',function(e){
       var raw=e.currentTarget.textContent;
-      var v=(raw.match(/-?\d+/)||['0'])[0];
+      var v=(raw.match(/-?\d+/) || ['0'])[0];
       e.currentTarget.textContent=v;
       teams[i].pts=Number(v);
       scheduleSave();
@@ -453,16 +452,15 @@ function renderDbList(){
 
     var badge=document.createElement('span'); badge.className='db-badge'; badge.textContent=abbr(t.name);
     var label=document.createElement('span'); label.className='db-name'; label.textContent=t.name;
-    var tags=document.createElement('span'); tags.className='db-tags'; var em=getEmotesFromTags(t.tags); if(em.length){ tags.textContent=em.join(' '); tags.title='Dyscypliny: ' + em.join(' '); }
     var c=document.createElement('span'); c.className='db-country'; var cc=getCountryCode(t); c.dataset.cc=cc; c.textContent=cc; c.title=getCountryTitle(t);
 
     var disabled = teams.findIndex(function(x){return normalizeName(x.name)===normalizeName(t.name);})!==-1;
     item.setAttribute('aria-disabled', disabled?'true':'false'); item.draggable=!disabled;
 
-    item.addEventListener('click',function(){ dbSelectedIdx=idx; renderDbList(); updateDbButtons(); openEditorForClub(t.name); });
+    item.addEventListener('click',function(){ dbSelectedIdx=idx; renderDbList(); updateDbButtons(); });
     item.addEventListener('dragstart',function(e){ if(disabled){ e.preventDefault(); return; } e.dataTransfer.setData('text/club',t.name); e.dataTransfer.setData('application/x-club',t.name); e.dataTransfer.setData('text/plain',t.name); e.dataTransfer.effectAllowed='copy'; });
 
-    item.appendChild(badge); item.appendChild(label); item.appendChild(tags); item.appendChild(c);
+    item.appendChild(badge); item.appendChild(label); item.appendChild(c);
     dbListEl.appendChild(item);
   });
   updateDbButtons();
@@ -665,7 +663,8 @@ if (btnEdSave) btnEdSave.addEventListener('click', function(){
   var dup = dbTeams.findIndex(function(t,i){ return i!==editorIndex && normalizeName(t.name)===normalizeName(name); });
   if (dup!==-1) return alert('Taki klub już istnieje w bazie.');
 
-  var rec = { name:name, country: (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ', countryName: cc==='I'?cn:'', tags:tags };
+  cc = (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ';
+  var rec = { name:name, country: cc, countryName: cc==='I'?cn:'', tags:tags };
   if (editorIndex>=0){ dbTeams[editorIndex] = rec; }
   else { dbTeams.push(rec); editorIndex = dbTeams.length-1; if(btnEdDelete) btnEdDelete.disabled=false; }
 

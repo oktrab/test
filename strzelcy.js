@@ -2,7 +2,6 @@
 var DB_URL = 'kluby.json';
 var LOGO_PATH = 'herby';
 var PLACEHOLDER_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="100%" height="100%" rx="12" ry="12" fill="#e5e7eb"/><text x="50%" y="54%" text-anchor="middle" font-family="Inter, Arial" font-size="18" fill="#475569">LOGO</text></svg>');
-var COUNTRY_NAMES = { SZ: 'Szwajcaria', W: 'Wosterg', Z: 'Zephyria', A: 'Aleksandria' };
 var ONE_DAY = 24*60*60*1000;
 
 // DOM
@@ -17,10 +16,12 @@ var btnDownloadDb = document.getElementById('btnDownloadDb');
 var scTitleEl = document.getElementById('scTitle');
 var btnSortGoals = document.getElementById('btnSortGoals');
 
-// Baza klubów
+// Filtry bazy
+var selectedTag = null, selectedCountry = null;
+
+// Baza klubów (SZ/W/I)
 var dbTeams = [];
 var dbFiltered = [];
-var selectedTag = null, selectedCountry = null;
 
 // Stan
 var scorers = []; // {name, goals, club, cc}
@@ -38,18 +39,48 @@ function normalizeName(s){ return String(s||'').trim().replace(/\s+/g,' ').toLow
 function stripAccents(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
 function abbr(name){ return String(name||'').trim().split(/\s+/).map(function(p){return p[0];}).join('').slice(0,3).toUpperCase(); }
 function colorFor(name){ var h=0, str=String(name||''); for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))%360; } return 'hsl(' + h + ' 70% 45%)'; }
-function mapLegacyCountry(raw, cn){
-  var c=String(raw||'SZ').toUpperCase(); var name=String(cn||'').toLowerCase();
-  if (c==='I'){ if(name.indexOf('zephyr')!==-1) return 'Z'; if(name.indexOf('aleks')!==-1||name.indexOf('alex')!==-1) return 'A'; return 'Z'; }
-  if (c==='SZ'||c==='W'||c==='Z'||c==='A') return c;
-  return 'SZ';
+
+// normalizacja bazy klubów – SZ/W/I
+function normalizeDbArray(rawArr){
+  return (Array.isArray(rawArr)?rawArr:[]).map(function(x){
+    if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
+    var cc = String((x && (x.country||x.c)) || 'SZ').toUpperCase();
+    cc = (cc==='SZ'||cc==='W'||cc==='I') ? cc : 'SZ';
+    return {
+      name:(x&&x.name)||'',
+      tags:(x&&(x.tags!=null?x.tags:(x.tag!=null?x.tag:[])))||[],
+      country:cc,
+      countryName:(x&&x.countryName)||(x&&x.cn)||''
+    };
+  }).filter(function(t){ return t.name; });
 }
-function getCountryCode(t){ return mapLegacyCountry(t && (t.country||t.c), t && (t.countryName||t.cn)); }
+function getCountryCodeClub(t){
+  var cc=String((t && (t.country||t.c)) || 'SZ').toUpperCase();
+  return (cc==='SZ'||cc==='W'||cc==='I')?cc:'SZ';
+}
+function countryTitleClub(t){
+  var cc=getCountryCodeClub(t);
+  if (cc==='I'){
+    var cn = String((t&&t.countryName)||'').trim();
+    return 'Inne kraje' + (cn?': '+cn:'');
+  }
+  return cc==='SZ'?'Szwajcaria':(cc==='W'?'Wosterg':cc);
+}
+
+// Wybór kraju zawodnika – mapowanie z klubu (I+countryName → Z/A)
+function derivePlayerCCFromClub(t){
+  var raw = String((t && (t.country||t.c)) || 'SZ').toUpperCase();
+  if (raw==='SZ' || raw==='W') return raw;
+  var cn = String((t && (t.countryName||t.cn)) || '').toLowerCase();
+  if (cn.indexOf('zephyr') !== -1) return 'Z';
+  if (cn.indexOf('aleks') !== -1 || cn.indexOf('alex') !== -1) return 'A';
+  return 'Z';
+}
 
 // Inicjalne 10 wierszy
 function defaultScorers(){ var arr=[]; for(var i=0;i<10;i++){ arr.push({ name:'', goals:0, club:'', cc:'' }); } return arr; }
 
-// CC menu (popover)
+// CC menu (popover dla zawodnika)
 var ccMenuEl = (function(){
   var el=document.createElement('div'); el.className='cc-menu';
   var opts=[{cc:'SZ',name:'Szwajcaria'},{cc:'W',name:'Wosterg'},{cc:'Z',name:'Zephyria'},{cc:'A',name:'Aleksandria'}];
@@ -98,7 +129,7 @@ function render(){
     // Logo
     var img=row.querySelector('.logo'); setAutoLogo(img, s.club);
 
-    // CC (klik -> menu)
+    // CC zawodnika (klik -> menu)
     var ccEl=row.querySelector('.cc');
     ccEl.addEventListener('click', function(){
       showCcMenu(ccEl, function(cc){
@@ -148,7 +179,8 @@ function render(){
       var name=dt.getData('text/club')||dt.getData('application/x-club')||''; if(!name) return;
       scorers[i].club = name;
       var t = dbTeams.find(function(k){return normalizeName(k.name)===normalizeName(name);});
-      scorers[i].cc = t ? getCountryCode(t) : (scorers[i].cc||'');
+      // kraj zawodnika wyprowadzony z klubu (I + countryName -> Z/A)
+      scorers[i].cc = t ? derivePlayerCCFromClub(t) : (scorers[i].cc||'');
       render(); saveStateSoon();
     });
 
@@ -171,7 +203,7 @@ function initDnD(){
   });
 }
 
-// Baza klubów (w tym filtry)
+// Baza klubów (SZ/W/I) + filtry
 var EMBEDDED_DB = [
   { name: 'Zamieć Bór', tags:['⚽'], country:'SZ' },
   { name: 'Żółci Przennów', tags:['⚽'], country:'SZ' },
@@ -180,23 +212,28 @@ var EMBEDDED_DB = [
   { name: 'Czarni Baczów', tags:['⚽'], country:'SZ' },
   { name: 'Olimpia Aavekaupunki', tags:['⚽'], country:'SZ' },
   { name: 'Areniscas Cadin', tags:['⚽','🏀'], country:'W' },
-  { name: 'Union Zephyr', tags:['⚽'], country:'Z' }
+  { name: 'Union Zephyr', tags:['⚽'], country:'I', countryName:'Zephyria' }
 ];
-function normalizeDbArray(rawArr){
-  return (Array.isArray(rawArr)?rawArr:[]).map(function(x){
-    if(typeof x==='string') return { name:x, tags:[], country:'SZ' };
-    var cc=mapLegacyCountry(x && (x.country||x.c), x && (x.countryName||x.cn));
-    return { name:(x&&x.name)||'', tags:(x&&(x.tags!=null?x.tags:(x.tag!=null?x.tag:[])))||[], country:cc, countryName:(x&&x.countryName)||'' };
-  }).filter(function(t){ return t.name; });
-}
 function sortDbTeamsByName(list){ return list.slice().sort(function(a,b){ return a.name.localeCompare(b.name,'pl'); }); }
+function getEmotesFromTags(raw){
+  var arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
+  return arr.map(function(x){ return String(x||'').trim(); }).filter(Boolean).map(function(x){
+    var lx=x.toLowerCase();
+    if (x==='⚽'||lx==='piłka'||lx==='pilka'||lx==='soccer'||lx==='football') return '⚽';
+    if (x==='🏀'||lx==='kosz'||lx==='basket'||lx==='basketball') return '🏀';
+    return null;
+  }).filter(Boolean);
+}
 function renderDbList(){
   var q = stripAccents(String(dbSearchEl.value||'').trim());
   var list = sortDbTeamsByName(dbTeams)
     .filter(function(t){ return !q || stripAccents(t.name).includes(q); })
     .filter(function(t){
       if (selectedTag){ var e=getEmotesFromTags(t.tags); if (e.indexOf(selectedTag)===-1) return false; }
-      if (selectedCountry){ if (getCountryCode(t)!==selectedCountry) return false; }
+      if (selectedCountry){
+        var cc = getCountryCodeClub(t);
+        if (cc !== selectedCountry) return false;
+      }
       return true;
     });
 
@@ -206,7 +243,7 @@ function renderDbList(){
     var item=document.createElement('button'); item.type='button'; item.className='db-item'; item.style.setProperty('--badge',colorFor(t.name));
     var badge=document.createElement('span'); badge.className='db-badge'; badge.textContent=abbr(t.name);
     var label=document.createElement('span'); label.className='db-name'; label.textContent=t.name;
-    var c=document.createElement('span'); c.className='db-country'; var cc=getCountryCode(t); c.dataset.cc=cc; c.textContent=cc; c.title=COUNTRY_NAMES[cc]||cc;
+    var c=document.createElement('span'); c.className='db-country'; var cc=getCountryCodeClub(t); c.dataset.cc=cc; c.textContent=cc; c.title=countryTitleClub(t);
     item.appendChild(badge); item.appendChild(label); item.appendChild(c);
     item.draggable=true;
     item.addEventListener('dragstart', function(e){
@@ -218,16 +255,8 @@ function renderDbList(){
     dbListEl.appendChild(item);
   });
 }
-function getEmotesFromTags(raw){
-  var arr=[]; if(Array.isArray(raw)) arr=raw; else if(typeof raw==='string') arr=raw.split(/[,;\s]+/); else if(raw&&typeof raw.tag==='string') arr=[raw.tag];
-  return arr.map(function(x){ return String(x||'').trim(); }).filter(Boolean).map(function(x){
-    var lx=x.toLowerCase();
-    if (x==='⚽'||lx==='piłka'||lx==='pilka'||lx==='soccer'||lx==='football') return '⚽';
-    if (x==='🏀'||lx==='kosz'||lx==='basket'||lx==='basketball') return '🏀';
-    return null;
-  }).filter(Boolean);
-}
 
+// Filtry
 function updateTagPillsUI(){ [].forEach.call(document.querySelectorAll('#tagFilter .tag-pill'), function(b){ var t=b.dataset.tag; if(t==='__clear') b.classList.remove('active'); else b.classList.toggle('active', selectedTag===t); }); }
 [].forEach.call(document.querySelectorAll('#tagFilter .tag-pill'), function(btn){ btn.addEventListener('click',function(){ var t=btn.dataset.tag; selectedTag=(t==='__clear')?null:(selectedTag===t?null:t); updateTagPillsUI(); renderDbList(); }); });
 updateTagPillsUI();
@@ -235,38 +264,6 @@ updateTagPillsUI();
 function updateCountryPillsUI(){ [].forEach.call(document.querySelectorAll('#countryFilter .country-pill'), function(b){ var c=b.dataset.country; if(c==='__clear') b.classList.remove('active'); else b.classList.toggle('active', selectedCountry===c); }); }
 [].forEach.call(document.querySelectorAll('#countryFilter .country-pill'), function(btn){ btn.addEventListener('click',function(){ var c=btn.dataset.country; selectedCountry=(c==='__clear')?null:(selectedCountry===c?null:c); updateCountryPillsUI(); renderDbList(); }); });
 updateCountryPillsUI();
-
-async function loadDb(){
-  var box=document.getElementById('dbError');
-  var show=function(msg){ if(box){ box.style.display='block'; box.textContent='Błąd ładowania bazy: '+msg+' (używam zapasowej)'; } };
-  var hide=function(){ if(box){ box.style.display='none'; box.textContent=''; } };
-  try{
-    if (location.protocol==='file:'){ dbTeams = normalizeDbArray(EMBEDDED_DB); hide(); renderDbList(); return; }
-    var res=await fetch(DB_URL+'?cb='+Date.now(),{cache:'no-store'}); if(!res.ok) throw new Error('HTTP '+res.status);
-    var txt=await res.text(), arr; try{ arr=JSON.parse(txt); }catch(e){ throw new Error('niepoprawny JSON'); }
-    dbTeams = normalizeDbArray(arr); hide(); renderDbList();
-  }catch(e){ show(e.message||'nieznany błąd'); dbTeams = normalizeDbArray(EMBEDDED_DB); renderDbList(); }
-}
-
-// Import/eksport bazy
-if (btnLoadDb && fileDbEl){
-  btnLoadDb.addEventListener('click', function(){ fileDbEl.click(); });
-  fileDbEl.addEventListener('change', async function(e){
-    var file=e.target.files && e.target.files[0]; if(!file) return;
-    try{
-      var txt=await file.text(); var arr=JSON.parse(txt);
-      dbTeams = normalizeDbArray(arr); renderDbList();
-    }catch(err){ alert('Nie udało się wczytać JSON: ' + (err.message||err)); }
-    finally{ fileDbEl.value=''; }
-  });
-}
-if (btnDownloadDb){
-  btnDownloadDb.addEventListener('click', function(){
-    var data=JSON.stringify(dbTeams,null,2);
-    var blob=new Blob([data],{type:'application/json'}), url=URL.createObjectURL(blob);
-    var a=document.createElement('a'); a.href=url; a.download='kluby.json'; a.click(); URL.revokeObjectURL(url);
-  });
-}
 
 // Sortowanie po golach
 if (btnSortGoals){

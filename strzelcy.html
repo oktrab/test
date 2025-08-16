@@ -6,14 +6,14 @@
   <title>Król Strzelców</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="strzelcy.css?v=2">
+  <link rel="stylesheet" href="strzelcy.css?v=4">
 </head>
 <body>
   <div class="app">
     <div class="panel">
 
       <!-- Nawigacja -->
-      <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:0">
+      <div class="row nav" style="gap:8px; flex-wrap:wrap; margin-top:0">
         <a href="index.html" class="btn secondary">Generator Tabeli</a>
         <a href="strzelcy.html" class="btn">Król Strzelców</a>
       </div>
@@ -26,10 +26,16 @@
           <button id="btnReset" class="btn secondary">Reset (10 wierszy)</button>
         </div>
 
+        <div class="row" style="gap:10px; flex-wrap:wrap">
+          <input id="fileSc" type="file" accept=".json,application/json" style="display:none">
+          <button id="btnLoadSc" class="btn secondary">Wczytaj zawodników (JSON)</button>
+          <button id="btnDownloadSc" class="btn">Pobierz zawodników (JSON)</button>
+        </div>
+
         <p class="note" style="margin-top:8px">
           - Kliknij “Imię i nazwisko”, aby wpisać zawodnika. Kliknij gole, aby edytować (Enter zatwierdza).
-          <br>- Kliknij skrót kraju, by wybrać z listy: Szwajcaria, Wosterg, Zephyria, Aleksandria.
-          <br>- Przeciągnij klub z bazy na wiersz, by przypisać herb i kraj z klubu.
+          <br>- Kliknij skrót kraju, by wybrać z listy: Szwajcaria (SZ), Wosterg (W), Zephyria (Z), Aleksandria (A).
+          <br>- Przeciągnij klub z bazy na wiersz, by przypisać herb (kraj klubu: SZ/W/I).
         </p>
       </details>
 
@@ -49,8 +55,7 @@
         <div class="country-filter" id="countryFilter">
           <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
           <button type="button" class="country-pill" data-country="W" title="Wosterg">W</button>
-          <button type="button" class="country-pill" data-country="Z" title="Zephyria">Z</button>
-          <button type="button" class="country-pill" data-country="A" title="Aleksandria">A</button>
+          <button type="button" class="country-pill" data-country="I" title="Inne kraje">I</button>
           <button type="button" class="country-pill clear" data-country="__clear" title="Wyczyść">Wyczyść</button>
         </div>
 
@@ -59,8 +64,8 @@
 
         <div class="row" style="gap:10px">
           <input id="fileDb" type="file" accept=".json,application/json" style="display:none">
-          <button id="btnLoadDb" class="btn secondary">Wczytaj JSON</button>
-          <button id="btnDownloadDb" class="btn">Pobierz JSON</button>
+          <button id="btnLoadDb" class="btn secondary">Wczytaj JSON (baza klubów)</button>
+          <button id="btnDownloadDb" class="btn">Pobierz JSON (baza klubów)</button>
         </div>
       </details>
 
@@ -80,7 +85,7 @@
           <div class="help-sec">
             <h4>Baza</h4>
             <ul>
-              <li>Filtry ⚽/🏀 i SZ/W/Z/A; przeciągnij klub na wiersz.</li>
+              <li>Filtry ⚽/🏀 i SZ/W/I; przeciągnij klub na wiersz.</li>
               <li>Wczytaj / pobierz JSON bazy (lokalnie, 24h).</li>
             </ul>
           </div>
@@ -115,6 +120,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="strzelcy.js?v=2"></script>
+  <script src="strzelcy.js?v=4"></script>
 </body>
 </html>
