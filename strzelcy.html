@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Król Strzelców</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="strzelcy.css?v=2">
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+
+      <!-- Nawigacja -->
+      <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:0">
+        <a href="index.html" class="btn secondary">Generator Tabeli</a>
+        <a href="strzelcy.html" class="btn">Król Strzelców</a>
+      </div>
+
+      <details class="sec" id="secScSettings" open>
+        <summary><span class="chev">▾</span> Operacje</summary>
+
+        <div class="row" style="gap:10px; flex-wrap:wrap">
+          <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
+          <button id="btnReset" class="btn secondary">Reset (10 wierszy)</button>
+        </div>
+
+        <p class="note" style="margin-top:8px">
+          - Kliknij “Imię i nazwisko”, aby wpisać zawodnika. Kliknij gole, aby edytować (Enter zatwierdza).
+          <br>- Kliknij skrót kraju, by wybrać z listy: Szwajcaria, Wosterg, Zephyria, Aleksandria.
+          <br>- Przeciągnij klub z bazy na wiersz, by przypisać herb i kraj z klubu.
+        </p>
+      </details>
+
+      <hr class="sep">
+
+      <details class="sec" id="secScDb" open>
+        <summary><span class="chev">▾</span> Baza klubów</summary>
+
+        <div id="dbError" class="db-error" style="display:none"></div>
+
+        <!-- Filtry -->
+        <div class="tag-filter" id="tagFilter">
+          <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
+          <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
+          <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść">Wyczyść</button>
+        </div>
+        <div class="country-filter" id="countryFilter">
+          <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
+          <button type="button" class="country-pill" data-country="W" title="Wosterg">W</button>
+          <button type="button" class="country-pill" data-country="Z" title="Zephyria">Z</button>
+          <button type="button" class="country-pill" data-country="A" title="Aleksandria">A</button>
+          <button type="button" class="country-pill clear" data-country="__clear" title="Wyczyść">Wyczyść</button>
+        </div>
+
+        <input id="dbSearch" type="text" placeholder="Szukaj klubu..." class="db-search">
+        <div id="dbList" class="db-list"></div>
+
+        <div class="row" style="gap:10px">
+          <input id="fileDb" type="file" accept=".json,application/json" style="display:none">
+          <button id="btnLoadDb" class="btn secondary">Wczytaj JSON</button>
+          <button id="btnDownloadDb" class="btn">Pobierz JSON</button>
+        </div>
+      </details>
+
+      <details class="help" id="helpBox" open>
+        <summary><span class="chev">▾</span> Pomoc</summary>
+        <div class="help-grid">
+          <div class="help-sec">
+            <h4>Wiersze</h4>
+            <ul>
+              <li>Poz. – uchwyt do przeciągania (zmiana kolejności).</li>
+              <li>Herb – przypisz z bazy przeciągając klub.</li>
+              <li>Kraj – kliknij skrót (SZ/W/Z/A), wybierz z listy.</li>
+              <li><strong>Imię i nazwisko</strong> – kliknij i wpisz zawodnika.</li>
+              <li>Gole – liczba (Enter zatwierdza).</li>
+            </ul>
+          </div>
+          <div class="help-sec">
+            <h4>Baza</h4>
+            <ul>
+              <li>Filtry ⚽/🏀 i SZ/W/Z/A; przeciągnij klub na wiersz.</li>
+              <li>Wczytaj / pobierz JSON bazy (lokalnie, 24h).</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="stage-wrap">
+      <div id="stage" class="stage">
+        <div class="topbar">
+          <div class="title" id="scTitle" contenteditable="true">Król Strzelców</div>
+        </div>
+
+        <div class="board">
+          <div class="board-header">
+            <div style="padding-left:8px">Poz.</div>
+            <div>Herb</div>
+            <div>Kraj</div>
+            <div>Zawodnik</div>
+            <div class="header-right">
+              <span>Gole</span>
+              <button id="btnSortGoals" class="sort-btn" title="Sortuj po golach">↕</button>
+            </div>
+          </div>
+          <div id="rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">powered by OKB</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="strzelcy.js?v=2"></script>
+</body>
+</html>

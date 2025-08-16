@@ -6,11 +6,17 @@
   <title>Generator Tabeli Ligowej</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=17b">
 </head>
 <body>
   <div class="app">
     <div class="panel">
+
+      <!-- Nawigacja -->
+      <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:0">
+        <a href="index.html" class="btn">Generator Tabeli</a>
+        <a href="strzelcy.html" class="btn secondary">Król Strzelców</a>
+      </div>
 
       <!-- Ustawienia (rozwijane) -->
       <details class="sec" id="secSettings" open>
@@ -40,7 +46,19 @@
           <button id="btnAdd" class="btn secondary">Dodaj wiersz</button>
           <button id="btnReset" class="btn secondary">Reset (domyślne)</button>
           <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
-          <button id="btnExportAll" class="btn">Zapisz JPG – wszystkie wiersze</button>
+          <button id="btnExportAll" class="btn" title="Używaj, gdy masz >12 drużyn w tabeli">Zapisz JPG – wszystkie wiersze (>12)</button>
+        </div>
+
+        <!-- Profile lig -->
+        <div class="subhead">Profile lig</div>
+        <div class="row" style="gap:8px; flex-wrap:wrap">
+          <input id="profileName" type="text" placeholder="Nazwa profilu..." class="text" style="flex:1 1 180px">
+          <button id="btnProfileSave" class="btn secondary">Zapisz profil</button>
+        </div>
+        <div class="row" style="gap:8px; flex-wrap:wrap">
+          <select id="profileSelect" class="select" style="flex:1 1 240px"></select>
+          <button id="btnProfileLoad" class="btn secondary">Wczytaj</button>
+          <button id="btnProfileDelete" class="btn secondary" disabled>Usuń</button>
         </div>
       </details>
 
@@ -63,11 +81,12 @@
           <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść">Wyczyść</button>
         </div>
 
-        <!-- Filtr kraju -->
+        <!-- Filtr kraju (SZ/W/Z/A) -->
         <div class="country-filter" id="countryFilter">
           <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
           <button type="button" class="country-pill" data-country="W"  title="Wosterg">W</button>
-          <button type="button" class="country-pill" data-country="I"  title="Inne kraje">I</button>
+          <button type="button" class="country-pill" data-country="Z"  title="Zephyria">Z</button>
+          <button type="button" class="country-pill" data-country="A"  title="Aleksandria">A</button>
           <button type="button" class="country-pill clear" data-country="__clear" title="Wyczyść">Wyczyść</button>
         </div>
 
@@ -83,6 +102,7 @@
         <div class="row" style="gap:10px">
           <input id="fileDb" type="file" accept=".json,application/json" style="display:none">
           <button id="btnLoadDb" class="btn secondary">Wczytaj JSON</button>
+          <button id="btnDownloadDb" class="btn">Pobierz JSON</button>
         </div>
       </details>
 
@@ -95,9 +115,9 @@
             <h4>Operacje w tabeli</h4>
             <ul>
               <li>Przeciągnij uchwytem w kolumnie <strong>Poz.</strong>, aby zmienić kolejność.</li>
-              <li>Kliknij <strong>nazwę</strong>, aby edytować. Masz podpowiedzi z bazy (Enter – wybór, Esc – zamknij).</li>
-              <li>Kliknij w <strong>Pkt</strong>, aby edytować. Enter – zatwierdza. Przycisk <strong>↕</strong> sortuje po punktach (↑/↓).</li>
-              <li>Przyciski <strong>↑</strong> <strong>↓</strong> <strong>✕</strong> obok nazwy: góra/dół/usuń wiersz.</li>
+              <li>Kliknij <strong>nazwę</strong>, aby edytować (podpowiedzi z bazy – Enter/Esc).</li>
+              <li>Kliknij w <strong>Pkt</strong>, aby edytować. <strong>↕</strong> sortuje po punktach (↑/↓).</li>
+              <li>Przyciski <strong>↑</strong> <strong>↓</strong> <strong>✕</strong> – góra/dół/usuń wiersz.</li>
               <li>DnD: przeciąganie wierszy sortuje; przeciągnięcie klubu z bazy na wiersz – podmienia; przeciągnięcie na tablicę – <em>dodaje na koniec</em>.</li>
             </ul>
           </div>
@@ -105,43 +125,8 @@
           <div class="help-sec">
             <h4>Baza klubów</h4>
             <ul>
-              <li>Filtry dyscypliny i kraju + wyszukiwarka po nazwie.</li>
-              <li>Klik na klub – zaznacza do akcji. <strong>Dodaj na koniec</strong> / <strong>Zastąp zaznaczony</strong>.</li>
-              <li><strong>Wczytaj JSON</strong> – ładujesz własną bazę (przechowywana lokalnie przez 24h).</li>
-            </ul>
-          </div>
-
-          <div class="help-sec">
-            <h4>Ustawienia i kolory</h4>
-            <ul>
-              <li><strong>Podium</strong> 1–3, <strong>Baraże</strong>, <strong>Spadki</strong>. Nie przekroczysz dostępnych miejsc: <em>rozmiar tabeli – podium</em>.</li>
-              <li><strong>Neutralne</strong> miejsca (licznik w panelu) = reszta po odjęciu baraży i spadków.</li>
-              <li>Kolory:
-                <span class="chip chip-gold" title="Podium"></span> Podium
-                <span class="chip chip-green" title="Baraże (awans)"></span> Baraże
-                <span class="chip chip-red" title="Spadek"></span> Spadek
-              </li>
-            </ul>
-          </div>
-
-          <div class="help-sec">
-            <h4>Skróty klawiszowe</h4>
-            <ul>
-              <li><kbd>Ctrl</kbd>+<kbd>S</kbd> – eksport JPG</li>
-              <li><kbd>Ctrl</kbd>+<kbd>F</kbd> – fokus “Szukaj klubu”</li>
-              <li><kbd>Delete</kbd> – usuń zaznaczony wiersz</li>
-              <li><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> – przesuń zaznaczony wiersz</li>
-              <li><kbd>↑</kbd>/<kbd>↓</kbd> – zmień zaznaczony wiersz</li>
-              <li><kbd>Enter</kbd> – edycja punktów w zaznaczonym wierszu</li>
-            </ul>
-          </div>
-
-          <div class="help-sec">
-            <h4>Eksport i zapis</h4>
-            <ul>
-              <li><strong>Zapisz JPG 1920×1080</strong> – aktualny widok, <strong>Zapisz JPG – wszystkie wiersze</strong> – bez przewijania.</li>
-              <li>Stan tabeli, ustawienia i tytuł zapisywane są lokalnie na <strong>24h</strong>.</li>
-              <li>Wczytana <em>własna baza JSON</em> – również przechowywana lokalnie przez <strong>24h</strong>.</li>
+              <li>Filtry ⚽/🏀 i kraje: SZ/W/Z/A (Zephyria, Aleksandria).</li>
+              <li>Wczytaj/Pobierz JSON – lokalnie (24h).</li>
             </ul>
           </div>
         </div>
@@ -174,6 +159,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

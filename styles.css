@@ -1,11 +1,13 @@
 :root{
   --bg:#f2f6fb; --row-even:#fff; --row-odd:#f7fafc;
   --top1:#fdf6bf; --top2:#e9edf2; --top3:#fde59a;
-  --playoff:#e9fbe9; --bar-playoff:#22c55e;   /* baraże (awans) – zielone */
+  --playoff:#e9fbe9; --bar-playoff:#22c55e;
   --releg:#ffe1e1; --bar-releg:#ff6b6b;
   --bar-top:#e3b341; --bar-top2:#9aa3ad; --bar-top3:#e8b20f;
   --text:#0e1b2b; --divider:#cfd7e3; --accent:#0f6fff; --radius:12px; --rowH:86px;
-  --ct-sz:#0ea5e9; --ct-w:#f59e0b; --ct-i:#64748b;
+  --ct-sz:#0ea5e9; --ct-w:#f59e0b; --ct-i:#64748b; /* legacy */
+  --ct-z:#7c3aed; /* Zephyria – fiolet */
+  --ct-a:#ef4444; /* Aleksandria – czerwony */
 }
 
 html,body{height:100%}
@@ -16,14 +18,16 @@ body{
 .app{flex:1 0 auto;display:grid;grid-template-columns:380px 1fr;gap:18px;padding:18px;box-sizing:border-box;align-items:start}
 
 .panel{background:#0f1628;color:#e5ecf8;border:1px solid #1f2b46;border-radius:14px;padding:16px;position:sticky;top:18px}
-.panel h2{margin:0 0 8px;font-size:18px}
 .panel .row{display:flex;gap:8px;align-items:center;margin:8px 0}
-.panel input[type="number"]{background:#0b1222;border:1px solid #223055;color:#e5ecf8;border-radius:8px;padding:8px 10px}
+.panel input[type="number"], .panel input[type="text"], .panel select{background:#0b1222;border:1px solid #223055;color:#e5ecf8;border-radius:8px;padding:8px 10px}
+.text{background:#0b1222;border:1px solid #223055;color:#e5ecf8;border-radius:8px;padding:8px 10px}
+.select{background:#0b1222;border:1px solid #223055;color:#e5ecf8;border-radius:8px;padding:8px 10px}
 .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
 .btn.secondary{background:#223055}
 .btn:disabled{opacity:.6;cursor:not-allowed}
 .sep{border:none;border-top:1px solid #253052;margin:14px 0}
 .note{font-size:12px;color:#a9b6cb}
+.subhead{margin-top:12px;margin-bottom:6px;font-size:12px;color:#a9b6cb;text-transform:uppercase;letter-spacing:.04em}
 
 /* Legenda */
 .legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
@@ -80,7 +84,7 @@ body{
 .row-item:hover .row-actions{opacity:1}
 .icon-btn{background:#f1f5f9;border:1px solid #d8e1ee;color:#0b2239;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px}
 
-/* Baza klubów – równe kolumny */
+/* Baza klubów */
 .db-search{width:100%;background:#0b1222;border:1px solid #223055;color:#e5ecf8;border-radius:8px;padding:8px 10px}
 .db-list{display:grid;gap:8px;margin:10px 0;max-height:260px;overflow:auto}
 .db-item{
@@ -94,11 +98,12 @@ body{
 
 .db-badge{width:26px;height:26px;border-radius:6px;background:var(--badge,#2b67ff);color:#cfe2ff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
 .db-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.db-tags{justify-self:end;min-width:60px;text-align:right;font-size:16px;opacity:.95;line-height:1}
 .db-country{justify-self:end;padding:2px 8px;border-radius:999px;font-weight:800;font-size:12px;color:#fff}
 .db-country[data-cc="SZ"]{background:var(--ct-sz)}
 .db-country[data-cc="W"]{background:var(--ct-w)}
-.db-country[data-cc="I"]{background:var(--ct-i)}
+.db-country[data-cc="I"]{background:var(--ct-i)} /* legacy */
+.db-country[data-cc="Z"]{background:var(--ct-z)}
+.db-country[data-cc="A"]{background:var(--ct-a)}
 
 /* Filtry */
 .tag-filter,.country-filter{display:flex;gap:8px;margin:6px 0 8px;flex-wrap:wrap}
@@ -135,9 +140,8 @@ body{
 .help-sec ul{margin:0;padding-left:18px}
 .help-sec li{margin:4px 0;font-size:13px;line-height:1.25}
 .help kbd{display:inline-block;padding:2px 6px;border:1px solid #223055;border-bottom-width:2px;border-radius:6px;background:#0b1222;color:#e5ecf8;font:700 12px/1 Inter,system-ui,Arial}
-.help .chip{vertical-align:middle;margin:0 4px 0 6px}
 
-/* Sekcje rozwijane (Ustawienia, Baza klubów) */
+/* Sekcje rozwijane */
 .sec{margin-top:12px;background:#0b1222;border:1px solid #223055;border-radius:12px;padding:10px}
 .sec summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;color:#e5ecf8;list-style:none}
 .sec summary::-webkit-details-marker{display:none}
