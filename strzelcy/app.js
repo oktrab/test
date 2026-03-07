@@ -1,4 +1,4 @@
-// strzelcy/app.js v13
+// strzelcy/app.js v14 — z obsługą stage-fit
 (function () {
   'use strict';
 
@@ -25,7 +25,6 @@
     { code: 'A',  name: 'Aleksandria', cls: 'a'  }
   ];
 
-  /* ═══ STORAGE ═══ */
   var storage = {
     set: function (k, data, ttl) {
       try {
@@ -50,7 +49,6 @@
     }
   };
 
-  /* ═══ HELPERS ═══ */
   var $ = function (id) { return document.getElementById(id); };
 
   function escapeHtml(s) {
@@ -104,7 +102,6 @@
     sel.addRange(range);
   }
 
-  /* ═══ NORMALIZACJA ═══ */
   function normalizePlayersArray(arr) {
     return (Array.isArray(arr) ? arr : []).map(function (x) {
       if (!x) return null;
@@ -130,7 +127,6 @@
     catch (e) { return null; }
   }
 
-  /* ═══ DOM ═══ */
   var rowsEl            = $('rows');
   var btnExport         = $('btnExport');
   var btnReset          = $('btnReset');
@@ -145,7 +141,6 @@
   var pdbCcFilterEl     = $('pdbCcFilter');
   var pdbClubSelectEl   = $('pdbClub');
 
-  /* ═══ STATE ═══ */
   var playersDb = [];
   var scorers = [];
   var rowsSortable = null;
@@ -153,47 +148,35 @@
   var selectedPdbCC = null;
   var selectedPdbClub = '';
   var LS_PLAYERS_DB = 'scorers_db_v1';
-
-  // Śledzi aktywny AC box — max 1 na raz
   var activeACBox = null;
 
-  /* ═══ CC MENU (globalny dropdown) ═══ */
   var ccMenuEl = null;
   var ccMenuOnPick = null;
 
   function ensureCCMenu() {
     if (ccMenuEl) return ccMenuEl;
-
     var el = document.createElement('div');
     el.className = 'ccg-menu';
-
     var list = document.createElement('div');
     list.className = 'ccg-list';
-
     CC_OPTIONS.forEach(function (opt) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'ccg-opt';
-
       var chip = document.createElement('span');
       chip.className = 'ccg-chip ' + opt.cls;
       chip.textContent = opt.code;
-
       var lab = document.createElement('span');
       lab.className = 'ccg-label';
       lab.textContent = opt.name;
-
       b.appendChild(chip);
       b.appendChild(lab);
-
       b.addEventListener('click', function () {
         if (typeof ccMenuOnPick === 'function') ccMenuOnPick(opt.code);
         hideCCMenu();
       });
-
       list.appendChild(b);
     });
-
     el.appendChild(list);
     el.style.display = 'none';
     document.body.appendChild(el);
@@ -205,20 +188,13 @@
     var el = ensureCCMenu();
     ccMenuOnPick = onPick;
     el.style.display = 'block';
-
     var r = anchorBtn.getBoundingClientRect();
     var menuW = el.offsetWidth || 220;
     var menuH = el.offsetHeight || 160;
     var top = Math.round(r.bottom + 8);
     var left = Math.round(r.left);
-
-    if (top + menuH > window.innerHeight - 8) {
-      top = Math.max(8, Math.round(r.top - 8 - menuH));
-    }
-    if (left + menuW > window.innerWidth - 8) {
-      left = Math.max(8, window.innerWidth - 8 - menuW);
-    }
-
+    if (top + menuH > window.innerHeight - 8) top = Math.max(8, Math.round(r.top - 8 - menuH));
+    if (left + menuW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - menuW);
     el.style.top = top + 'px';
     el.style.left = left + 'px';
     el.classList.add('open');
@@ -240,15 +216,12 @@
     if (e.key === 'Escape') hideCCMenu();
   });
 
-  /* ═══ CC PICKER (w wierszu) ═══ */
   function buildCCPicker(model, onChange) {
     var wrap = document.createElement('div');
     wrap.className = 'cc';
-
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'cc-btn';
-
     function renderBtn() {
       var code = (model.cc || '').toUpperCase();
       btn.setAttribute('data-cc', code);
@@ -256,9 +229,7 @@
       var opt = CC_OPTIONS.find(function (o) { return o.code === code; });
       btn.title = opt ? opt.name : 'Wybierz kraj';
     }
-
     renderBtn();
-
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       showCCMenu(btn, function (picked) {
@@ -267,12 +238,10 @@
         if (onChange) onChange(picked);
       });
     });
-
     wrap.appendChild(btn);
     return wrap;
   }
 
-  /* ═══ AUTOCOMPLETE ═══ */
   function isNameUsed(name, exceptIdx) {
     var nn = normalizeName(name);
     if (!nn) return false;
@@ -284,7 +253,6 @@
   function playerSuggestions(query, exceptIdx) {
     var q = stripAccents(String(query || '').trim());
     if (!q) return [];
-
     var usedNames = {};
     scorers.forEach(function (x, idx) {
       if (idx !== exceptIdx) {
@@ -292,7 +260,6 @@
         if (nn) usedNames[nn] = true;
       }
     });
-
     return playersDb
       .filter(function (p) {
         return p && p.name && !usedNames[normalizeName(p.name)]
@@ -306,12 +273,8 @@
       .slice(0, AC_LIMIT);
   }
 
-  // Zarządzanie jednym AC boxem na raz
   function destroyActiveAC() {
-    if (activeACBox) {
-      activeACBox.remove();
-      activeACBox = null;
-    }
+    if (activeACBox) { activeACBox.remove(); activeACBox = null; }
   }
 
   function createACBox() {
@@ -324,12 +287,7 @@
   }
 
   function renderACItems(box, items, onPick) {
-    if (!items.length) {
-      box.style.display = 'none';
-      box.innerHTML = '';
-      return;
-    }
-
+    if (!items.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.innerHTML = '';
     items.forEach(function (p, idx) {
       var b = document.createElement('button');
@@ -340,10 +298,7 @@
         '<span class="ac-badge" style="--badge:' + colorFor(p.name) + '">' + escapeHtml(abbr(p.name)) + '</span>'
         + '<span class="ac-text">' + escapeHtml(p.name) + (p.club ? ' – ' + escapeHtml(p.club) : '') + '</span>'
         + '<span class="ac-tags">' + escapeHtml(p.cc || '') + '</span>';
-      b.addEventListener('mousedown', function (e) {
-        e.preventDefault();
-        onPick(p);
-      });
+      b.addEventListener('mousedown', function (e) { e.preventDefault(); onPick(p); });
       box.appendChild(b);
     });
     box.style.display = 'block';
@@ -370,24 +325,18 @@
     return data[parseInt(sel.dataset.idx, 10) || 0] || null;
   }
 
-  /* ═══ DEFAULT SCORERS ═══ */
   function defaultScorers() {
     var arr = [];
-    for (var i = 0; i < 10; i++) {
-      arr.push({ name: '', goals: 0, club: '', cc: '' });
-    }
+    for (var i = 0; i < 10; i++) arr.push({ name: '', goals: 0, club: '', cc: '' });
     return arr;
   }
 
-  /* ═══ RENDER ═══ */
   function render() {
     destroyActiveAC();
     rowsEl.innerHTML = '';
-
     scorers.forEach(function (s, i) {
       var row = document.createElement('div');
       row.className = 'row-item';
-
       row.innerHTML =
         '<div class="pos" title="Przeciągnij, aby zmienić kolejność">' + (i + 1) + '</div>'
         + '<div class="club"><img class="logo" alt="" title="' + escapeHtml(s.club || '') + '"></div>'
@@ -401,23 +350,13 @@
 
       var img = row.querySelector('.logo');
       setAutoLogo(img, s.club);
-
-      // CC Picker
       var ccCell = row.querySelector('.cc-cell');
       ccCell.appendChild(buildCCPicker(s, function () { saveStateSoon(); }));
-
-      // Name + AC
       attachNameHandlers(row, s, i);
-
-      // Goals
       attachGoalsHandlers(row, s, i);
-
-      // Drop zawodnika na wiersz
       attachDropHandlers(row, i);
-
       rowsEl.appendChild(row);
     });
-
     initDnD();
     renderPlayersDbList();
   }
@@ -455,16 +394,11 @@
       }
     }
 
-    nameEl.addEventListener('focus', function () {
-      accepted = false;
-      showAC();
-    });
-
+    nameEl.addEventListener('focus', function () { accepted = false; showAC(); });
     nameEl.addEventListener('input', function () {
       scorers[i].name = nameEl.textContent.trim();
       showAC();
     });
-
     nameEl.addEventListener('keydown', function (e) {
       if (!acBox || acBox.style.display === 'none') return;
       if (e.key === 'ArrowDown')  { e.preventDefault(); moveACSelection(acBox, 1); }
@@ -472,7 +406,6 @@
       else if (e.key === 'Enter')      { e.preventDefault(); accept(getACSelected(acBox, acData)); }
       else if (e.key === 'Escape')     { e.preventDefault(); acBox.style.display = 'none'; }
     });
-
     nameEl.addEventListener('blur', function () {
       if (accepted) return;
       setTimeout(function () {
@@ -487,28 +420,23 @@
 
   function attachGoalsHandlers(row, s, i) {
     var gEl = row.querySelector('.gval');
-
     gEl.addEventListener('beforeinput', function (e) {
       if (e.inputType === 'insertText') {
         if (!/^\d$/.test(e.data || '')) e.preventDefault();
       }
     });
-
     gEl.addEventListener('paste', function (e) {
       e.preventDefault();
       var text = (e.clipboardData && e.clipboardData.getData('text')) || '';
       var clean = (text.match(/\d+/) || [''])[0];
       if (clean) insertTextAtCursor(clean);
     });
-
     gEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); gEl.blur(); }
     });
-
     gEl.addEventListener('input', function () {
       scorers[i].goals = Number((gEl.textContent.match(/\d+/) || [''])[0] || 0);
     });
-
     gEl.addEventListener('blur', function () {
       var v = (gEl.textContent.match(/\d+/) || ['0'])[0];
       gEl.textContent = v;
@@ -525,27 +453,20 @@
       e.preventDefault();
       row.classList.add('db-over');
     });
-
-    row.addEventListener('dragleave', function () {
-      row.classList.remove('db-over');
-    });
-
+    row.addEventListener('dragleave', function () { row.classList.remove('db-over'); });
     row.addEventListener('drop', function (e) {
       row.classList.remove('db-over');
       var types = e.dataTransfer && e.dataTransfer.types
         ? Array.prototype.slice.call(e.dataTransfer.types) : [];
       if (types.indexOf('text/player') === -1 && types.indexOf('application/x-player') === -1) return;
       e.preventDefault();
-
       var name = e.dataTransfer.getData('text/player')
         || e.dataTransfer.getData('application/x-player') || '';
       if (!name) return;
-
       var p = playersDb.find(function (x) {
         return normalizeName(x.name) === normalizeName(name);
       });
       if (!p || isNameUsed(p.name, i)) return;
-
       scorers[i] = {
         name: p.name,
         goals: Number(p.goals || 0),
@@ -557,11 +478,9 @@
     });
   }
 
-  /* ═══ DnD SORTABLE ═══ */
   function initDnD() {
     if (typeof Sortable === 'undefined') return;
     if (rowsSortable && rowsSortable.destroy) rowsSortable.destroy();
-
     rowsSortable = new Sortable(rowsEl, {
       animation: 150,
       handle: '.pos',
@@ -576,7 +495,6 @@
     });
   }
 
-  /* ═══ BAZA — LISTA ═══ */
   function usedPlayersSet() {
     var s = {};
     scorers.forEach(function (x) {
@@ -593,7 +511,6 @@
       var c = (p.club || '').trim();
       if (c) clubs[c] = true;
     });
-
     pdbClubSelectEl.innerHTML = '<option value="">Wszystkie kluby</option>'
       + Object.keys(clubs).sort(function (a, b) { return a.localeCompare(b, 'pl'); })
         .map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; })
@@ -614,7 +531,6 @@
     if (!pdbListEl) return;
     var q = stripAccents(String(pdbSearchEl && pdbSearchEl.value || '').trim());
     var used = usedPlayersSet();
-
     var list = playersDb.filter(function (p) {
       if (selectedPdbCC && String(p.cc || '').toUpperCase() !== selectedPdbCC) return false;
       if (selectedPdbClub && String(p.club || '') !== selectedPdbClub) return false;
@@ -626,23 +542,19 @@
     });
 
     pdbListEl.innerHTML = '';
-
     var max = Math.min(list.length, MAX_DB_VISIBLE);
     for (var idx = 0; idx < max; idx++) {
       var p = list[idx];
       var disabled = !!used[normalizeName(p.name)];
-
       var item = document.createElement('div');
       item.className = 'pdb-item';
       item.style.setProperty('--badge', colorFor(p.name));
       item.setAttribute('aria-disabled', disabled);
       item.draggable = !disabled;
-
       item.innerHTML =
         '<span class="pdb-badge">' + escapeHtml(abbr(p.name)) + '</span>'
         + '<span class="pdb-name">' + escapeHtml(p.name + (p.club ? ' – ' + p.club : '')) + '</span>'
         + '<span class="pdb-cc" data-cc="' + escapeHtml(p.cc || '') + '">' + escapeHtml(p.cc || '') + '</span>';
-
       if (!disabled) {
         (function (player) {
           item.addEventListener('dragstart', function (e) {
@@ -653,29 +565,19 @@
           });
         })(p);
       }
-
       pdbListEl.appendChild(item);
     }
   }
 
   function showPdbError(msg) {
-    if (pdbErrorEl) {
-      pdbErrorEl.removeAttribute('hidden');
-      pdbErrorEl.textContent = msg;
-    }
+    if (pdbErrorEl) { pdbErrorEl.removeAttribute('hidden'); pdbErrorEl.textContent = msg; }
   }
 
   function hidePdbError() {
-    if (pdbErrorEl) {
-      pdbErrorEl.setAttribute('hidden', '');
-      pdbErrorEl.textContent = '';
-    }
+    if (pdbErrorEl) { pdbErrorEl.setAttribute('hidden', ''); pdbErrorEl.textContent = ''; }
   }
 
-  /* ═══ ŁADOWANIE BAZY ═══ */
-  // Nie duplikujemy SAMPLE_PLAYERS — używamy inline <script> jako fallback
   function loadPlayersDb() {
-    // 1. Inline
     var inline = tryInlinePlayers();
     if (inline && inline.length) {
       playersDb = inline;
@@ -684,8 +586,6 @@
       renderPlayersDbList();
       return;
     }
-
-    // 2. LocalStorage
     var cached = storage.get(LS_PLAYERS_DB);
     if (Array.isArray(cached) && cached.length) {
       playersDb = normalizePlayersArray(cached);
@@ -694,8 +594,6 @@
       renderPlayersDbList();
       return;
     }
-
-    // 3. Fetch → fallback do inline (już sprawdzony wyżej, ale na wypadek)
     fetch(PLAYERS_DB_URL + '?cb=' + Date.now(), { cache: 'no-store' })
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -706,10 +604,7 @@
         if (!norm.length) throw new Error('Pusta baza');
         playersDb = norm;
       })
-      .catch(function () {
-        // Fallback — puste 10 wierszy (inline nie zadziałał, fetch nie zadziałał)
-        playersDb = [];
-      })
+      .catch(function () { playersDb = []; })
       .then(function () {
         hidePdbError();
         fillClubsFilter();
@@ -717,9 +612,7 @@
       });
   }
 
-  /* ═══ PANEL EVENTS (raz) ═══ */
   function initPanelEvents() {
-    // Import pliku — nowoczesne API
     if (btnLoadPlayersDb && filePlayersDbEl) {
       btnLoadPlayersDb.addEventListener('click', function () { filePlayersDbEl.click(); });
       filePlayersDbEl.addEventListener('change', function (e) {
@@ -739,8 +632,6 @@
         filePlayersDbEl.value = '';
       });
     }
-
-    // Eksport bazy
     if (btnDownloadDb) {
       btnDownloadDb.addEventListener('click', function () {
         var blob = new Blob([JSON.stringify(playersDb || [], null, 2)], { type: 'application/json' });
@@ -751,13 +642,9 @@
         URL.revokeObjectURL(a.href);
       });
     }
-
-    // Szukaj z debounce
     if (pdbSearchEl) {
       pdbSearchEl.addEventListener('input', debounce(renderPlayersDbList, 200));
     }
-
-    // Filtr kraju
     if (pdbCcFilterEl) {
       var pills = pdbCcFilterEl.querySelectorAll('.country-pill');
       for (var i = 0; i < pills.length; i++) {
@@ -771,8 +658,6 @@
         })(pills[i]);
       }
     }
-
-    // Filtr klubu
     if (pdbClubSelectEl) {
       pdbClubSelectEl.addEventListener('change', function () {
         selectedPdbClub = pdbClubSelectEl.value || '';
@@ -781,7 +666,6 @@
     }
   }
 
-  /* ═══ SORTOWANIE ═══ */
   if (btnSortGoals) {
     btnSortGoals.addEventListener('click', function () {
       if (sortGoalsMode === 'none' || sortGoalsMode === 'asc') {
@@ -798,7 +682,7 @@
     });
   }
 
-  /* ═══ EKSPORT JPG ═══ */
+  /* ═══ EKSPORT JPG — Z STAGE-FIT ═══ */
   function waitForImages(node) {
     var imgs = node.querySelectorAll('img');
     var promises = [];
@@ -826,6 +710,9 @@
       hideCCMenu();
       destroyActiveAC();
 
+      // ✅ Wyłącz skalowanie na czas eksportu
+      if (window.stageFit) window.stageFit.disable();
+
       waitForImages(stage)
         .then(function () { return new Promise(function (r) { requestAnimationFrame(r); }); })
         .then(function () {
@@ -833,11 +720,8 @@
           return htmlToImage.toJpeg(stage, {
             quality: 0.95,
             backgroundColor: bg.trim(),
-            width: 1920,
-            height: 1080,
-            pixelRatio: 1,
-            cacheBust: true,
-            imagePlaceholder: PLACEHOLDER_SVG
+            width: 1920, height: 1080, pixelRatio: 1,
+            cacheBust: true, imagePlaceholder: PLACEHOLDER_SVG
           });
         })
         .then(function (url) {
@@ -851,11 +735,12 @@
         })
         .then(function () {
           stage.classList.remove('exporting');
+          // ✅ Przywróć skalowanie
+          if (window.stageFit) window.stageFit.enable();
         });
     });
   }
 
-  /* ═══ AUTOSAVE ═══ */
   var saveTimer = null;
 
   function saveState() {
@@ -887,7 +772,6 @@
     return true;
   }
 
-  /* ═══ RESET ═══ */
   if (btnReset) {
     btnReset.addEventListener('click', function () {
       scorers = defaultScorers();
@@ -897,7 +781,6 @@
     });
   }
 
-  // Tytuł — autosave
   if (scTitleEl) {
     var titleTimer = null;
     scTitleEl.addEventListener('input', function () {
@@ -907,7 +790,6 @@
     scTitleEl.addEventListener('blur', saveState);
   }
 
-  /* ═══ START ═══ */
   if (!loadState()) {
     var db = storage.get('scorers_db_v1');
     scorers = Array.isArray(db) && db.length

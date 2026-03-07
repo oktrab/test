@@ -1,4 +1,4 @@
-// liga/app.js v9 naprawiona
+// liga/app.js v10 — z obsługą stage-fit
 /* ═══════════════════ CONFIG ═══════════════════ */
 const DB_URL = '../kluby.json';
 const LOGO_PATH = '../herby';
@@ -835,6 +835,7 @@ if (btnEdSave) {
   });
 }
 
+/* ═══════════════════ EKSPORT JPG — Z STAGE-FIT ═══════════════════ */
 const waitForImages = node =>
   Promise.all($$('img', node).map(img =>
     new Promise(r => {
@@ -847,6 +848,10 @@ const waitForImages = node =>
 $('btnExport').addEventListener('click', async () => {
   const stage = $('stage');
   stage.classList.add('exporting');
+
+  // ✅ Wyłącz skalowanie na czas eksportu
+  if (window.stageFit) window.stageFit.disable();
+
   await waitForImages(stage);
   await new Promise(r => requestAnimationFrame(r));
   try {
@@ -860,7 +865,11 @@ $('btnExport').addEventListener('click', async () => {
     a.href = url;
     a.download = 'tabela_' + new Date().toISOString().slice(0, 10) + '.jpg';
     a.click();
-  } finally { stage.classList.remove('exporting'); }
+  } finally {
+    stage.classList.remove('exporting');
+    // ✅ Przywróć skalowanie
+    if (window.stageFit) window.stageFit.enable();
+  }
 });
 
 $('btnExportAll').addEventListener('click', async () => {
@@ -875,6 +884,9 @@ $('btnExportAll').addEventListener('click', async () => {
   rowsEl.classList.remove('scroll');
   rowsEl.style.overflow = 'visible';
   rowsEl.style.gridAutoRows = getComputedStyle(document.documentElement).getPropertyValue('--rowH') || '86px';
+
+  // ✅ Wyłącz skalowanie
+  if (window.stageFit) window.stageFit.disable();
 
   await waitForImages(stage);
   await new Promise(r => requestAnimationFrame(r));
@@ -896,6 +908,8 @@ $('btnExportAll').addEventListener('click', async () => {
     if (hadScroll) rowsEl.classList.add('scroll');
     rowsEl.style.overflow = prevOv || '';
     rowsEl.style.gridAutoRows = prevAuto || '';
+    // ✅ Przywróć skalowanie
+    if (window.stageFit) window.stageFit.enable();
   }
 });
 
@@ -952,7 +966,7 @@ if (titleEl) {
   titleEl.addEventListener('blur', saveState);
 }
 
-// ✅ NAPRAWIONE KOLEJNOŚĆ SKRÓTÓW KLAWISZOWYCH
+// ✅ NAPRAWIONE SKRÓTY KLAWISZOWE
 document.addEventListener('keydown', e => {
   const ae = document.activeElement;
   if (ae && (ae.isContentEditable || /^(input|textarea|select)$/i.test(ae.tagName))) return;
@@ -990,7 +1004,6 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // Dopiero potem zwykłe strzałki
   if (key === 'ArrowDown') {
     e.preventDefault();
     if (selectedRowIndex < teams.length - 1) {
@@ -1043,7 +1056,7 @@ function initPanelsState() {
 }
 
 function resizeTeams(newSize) {
-  newSize = Math.max(1, Math.min(64, newSize | 0));
+  newSize = Math.max(1, Math.min(MAX_TEAMS, newSize | 0));
   if (newSize === teams.length) return false;
 
   if (newSize > teams.length) {
@@ -1097,6 +1110,29 @@ function applyProfile(p) {
   coerceSettings('auto');
   scheduleSave();
   render();
+}
+
+if (btnProfileSave) {
+  btnProfileSave.addEventListener('click', () => {
+    const name = (profileNameEl?.value || '').trim()
+      || ('Profil ' + new Date().toLocaleDateString('pl-PL'));
+    const p = {
+      id: uid('profile'), name,
+      data: {
+        title: (titleEl?.textContent || '').trim() || 'Tabela ligowa',
+        podium: +inPodium.value | 0,
+        playoff: +inPlayoff.value | 0,
+        releg: +inReleg.value | 0,
+        size: teams.length
+      }
+    };
+    const user = getUserProfiles();
+    user.push(p);
+    saveUserProfiles(user);
+    renderProfilesUI();
+    const idx = Array.from(profileSelectEl.options).findIndex(o => o.value === p.id);
+    if (idx >= 0) profileSelectEl.selectedIndex = idx;
+  });
 }
 
 if (btnProfileLoad) {

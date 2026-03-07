@@ -638,3 +638,37 @@ a.btn, a.btn.secondary {
 }
 
 .help .chip { vertical-align: middle; margin: 0 4px 0 6px; }
+
+/* ═══ PANEL — scroll gdy za wysoki ═══ */
+.panel {
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+
+  /* ✅ NOWE — panel nie wychodzi poza ekran */
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #223055 transparent;
+}
+
+/* Webkit scrollbar w panelu */
+.panel::-webkit-scrollbar { width: 6px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb {
+  background: #223055;
+  border-radius: 3px;
+}
+.panel::-webkit-scrollbar-thumb:hover { background: #2a3c6b; }
+
+/* ═══ STAGE-WRAP — lepsze dopasowanie ═══ */
+.stage-wrap {
+  overflow: hidden;  /* ✅ było: auto (scrollbar) → teraz: hidden (stage-fit.js skaluje) */
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+}

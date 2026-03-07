@@ -577,3 +577,32 @@ a.btn, a.btn.secondary {
   font-weight: 700;
   color: #a9b6cb;
 }
+/* ═══ PANEL — scroll gdy za wysoki ═══ */
+.panel {
+  background: var(--panel-bg);
+  color: var(--panel-text);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 16px;
+  position: sticky;
+  top: 18px;
+
+  /* ✅ NOWE */
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #223055 transparent;
+}
+
+.panel::-webkit-scrollbar { width: 6px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: #223055; border-radius: 3px; }
+.panel::-webkit-scrollbar-thumb:hover { background: #2a3c6b; }
+
+/* ═══ STAGE-WRAP ═══ */
+.stage-wrap {
+  overflow: hidden;  /* ✅ zmiana z auto na hidden */
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+}
