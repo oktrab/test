@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OKB — Generator Lig</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap"
+        as="style" onload="this.rel='stylesheet'">
+  <link rel="stylesheet" href="home.css?v=1">
+</head>
+<body>
+
+<!-- ═══ HERO ═══ -->
+<header class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero-content">
+    <div class="hero-badge">⚽ 🏀</div>
+    <h1 class="hero-title">OKB Liga</h1>
+    <p class="hero-sub">
+      Generator tabel ligowych, król strzelców i baza danych klubów
+      <br>— wszystko w jednym miejscu.
+    </p>
+    <div class="hero-stats" id="heroStats"></div>
+  </div>
+</header>
+
+<!-- ═══ MODUŁY ═══ -->
+<main class="modules">
+  <h2 class="section-title">Narzędzia</h2>
+
+  <div class="cards">
+
+    <!-- Generator Tabeli -->
+    <a href="liga/index.html" class="card card--liga">
+      <div class="card-icon">🏆</div>
+      <div class="card-body">
+        <h3 class="card-title">Generator Tabeli</h3>
+        <p class="card-desc">
+          Twórz tabele ligowe z pełną kontrolą — podium, baraże, spadki.
+          Przeciągaj kluby z bazy, wpisuj punkty, eksportuj do JPG.
+        </p>
+        <ul class="card-features">
+          <li>Drag & drop kolejności</li>
+          <li>Autouzupełnianie z bazy klubów</li>
+          <li>Eksport JPG 1920×1080</li>
+          <li>Profile lig i presety</li>
+        </ul>
+      </div>
+      <div class="card-cta">
+        <span class="card-cta-text">Otwórz generator</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Król Strzelców -->
+    <a href="strzelcy/index.html" class="card card--strzelcy">
+      <div class="card-icon">👟</div>
+      <div class="card-body">
+        <h3 class="card-title">Król Strzelców</h3>
+        <p class="card-desc">
+          Lista najlepszych strzelców z herbami, krajami i golami.
+          Podpowiedzi z bazy zawodników, sortowanie, eksport.
+        </p>
+        <ul class="card-features">
+          <li>Autocomplete zawodników</li>
+          <li>Picker kraju (SZ/W/Z/A)</li>
+          <li>Drag & drop z bazy</li>
+          <li>Eksport JPG 1920×1080</li>
+        </ul>
+      </div>
+      <div class="card-cta">
+        <span class="card-cta-text">Otwórz strzelców</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Baza Danych -->
+    <a href="baza/index.html" class="card card--baza">
+      <div class="card-icon">🗄️</div>
+      <div class="card-body">
+        <h3 class="card-title">Baza Danych</h3>
+        <p class="card-desc">
+          Zarządzaj klubami i zawodnikami — formularz lub surowy JSON.
+          Import/eksport plików, walidacja danych.
+        </p>
+        <ul class="card-features">
+          <li>Edytor klubów (SZ/W/I, tagi)</li>
+          <li>Edytor zawodników (gole, klub, kraj)</li>
+          <li>Import/eksport JSON</li>
+          <li>Zapis lokalny 24h</li>
+        </ul>
+      </div>
+      <div class="card-cta">
+        <span class="card-cta-text">Otwórz bazę</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+  </div>
+</main>
+
+<!-- ═══ SZYBKIE AKCJE ═══ -->
+<section class="quick-actions">
+  <h2 class="section-title">Szybki start</h2>
+  <div class="actions-grid">
+    <a href="liga/index.html" class="action-btn action--primary">
+      <span class="action-icon">➕</span>
+      <span>Nowa tabela ligowa</span>
+    </a>
+    <a href="strzelcy/index.html" class="action-btn">
+      <span class="action-icon">📋</span>
+      <span>Lista strzelców</span>
+    </a>
+    <a href="baza/kluby/index.html" class="action-btn">
+      <span class="action-icon">⚽</span>
+      <span>Edytuj kluby</span>
+    </a>
+    <a href="baza/zawodnicy/index.html" class="action-btn">
+      <span class="action-icon">👤</span>
+      <span>Edytuj zawodników</span>
+    </a>
+  </div>
+</section>
+
+<!-- ═══ INFO ═══ -->
+<section class="info">
+  <h2 class="section-title">Jak to działa</h2>
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-num">1</div>
+      <h4>Uzupełnij bazę</h4>
+      <p>Dodaj kluby i zawodników przez formularz lub wczytaj JSON.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-num">2</div>
+      <h4>Stwórz tabelę</h4>
+      <p>Przeciągnij kluby, wpisz punkty, ustaw podium i spadki.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-num">3</div>
+      <h4>Eksportuj</h4>
+      <p>Zapisz tabelę lub listę strzelców jako gotową grafikę JPG.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="site-footer">
+  <div class="footer-content">
+    <span class="footer-brand">OKB Liga</span>
+    <span class="footer-sep">·</span>
+    <span>powered by OKB</span>
+  </div>
+</footer>
+
+<!-- ═══ SKRYPT (statystyki z localStorage) ═══ -->
+<script>
+(function () {
+  'use strict';
+
+  var ONE_DAY = 24 * 60 * 60 * 1000;
+  var el = document.getElementById('heroStats');
+  if (!el) return;
+
+  function lsGet(k) {
+    try {
+      var o = JSON.parse(localStorage.getItem(k));
+      if (!o) return null;
+      if (o.ttl && Date.now() - o.ts > o.ttl) { localStorage.removeItem(k); return null; }
+      return o.data;
+    } catch (e) { return null; }
+  }
+
+  var clubs = lsGet('db_override_v1');
+  var players = lsGet('scorers_db_v1');
+  var liga = lsGet('liga_state_v1');
+  var scorers = lsGet('scorers_state_v1');
+
+  var stats = [];
+
+  if (Array.isArray(clubs) && clubs.length) {
+    stats.push('<span class="stat">🏟️ ' + clubs.length + ' klubów w bazie</span>');
+  }
+  if (Array.isArray(players) && players.length) {
+    stats.push('<span class="stat">👤 ' + players.length + ' zawodników</span>');
+  }
+  if (liga && Array.isArray(liga.teams)) {
+    stats.push('<span class="stat">📊 Liga: ' + liga.teams.length + ' drużyn</span>');
+  }
+  if (scorers && Array.isArray(scorers.scorers)) {
+    var filled = scorers.scorers.filter(function (s) { return s.name; }).length;
+    if (filled) stats.push('<span class="stat">👟 ' + filled + ' strzelców</span>');
+  }
+
+  if (stats.length) {
+    el.innerHTML = stats.join('<span class="stat-sep">·</span>');
+    el.style.display = 'flex';
+  }
+})();
+</script>
+
+</body>
+</html>
