@@ -115,7 +115,19 @@ a.btn, a.btn.secondary {
 .note-top { margin-top: 8px; }
 
 /* ═══ ROWS — inline styles przeniesione do klas ═══ */
-.row.nav { gap: 8px; flex-wrap: wrap; margin-top: 0; }
+/* ✅ Wszędzie takie same przyciski w nawigacji */
+.row.nav {
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.row.nav .btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
 .actions-row { gap: 10px; flex-wrap: wrap; }
 .club-row { gap: 8px; flex-wrap: wrap; }
 .club-select { min-width: 220px; }

@@ -176,29 +176,23 @@
 
   var clubs = lsGet('db_override_v1');
   var players = lsGet('scorers_db_v1');
-  var liga = lsGet('liga_state_v1');
-  var scorers = lsGet('scorers_state_v1');
 
-  var stats = [];
+  var stats = [
+    '<span class="stat">🏟️ 22 klubów w bazie</span>',
+    '<span class="stat">👤 10 zawodników</span>',
+    '<span class="stat">📊 4 wspierane ligi</span>',
+  ];
 
   if (Array.isArray(clubs) && clubs.length) {
-    stats.push('<span class="stat">🏟️ ' + clubs.length + ' klubów w bazie</span>');
+    stats[0] = `<span class="stat">🏟️ ${clubs.length} klubów w bazie</span>`;
   }
   if (Array.isArray(players) && players.length) {
-    stats.push('<span class="stat">👤 ' + players.length + ' zawodników</span>');
-  }
-  if (liga && Array.isArray(liga.teams)) {
-    stats.push('<span class="stat">📊 Liga: ' + liga.teams.length + ' drużyn</span>');
-  }
-  if (scorers && Array.isArray(scorers.scorers)) {
-    var filled = scorers.scorers.filter(function (s) { return s.name; }).length;
-    if (filled) stats.push('<span class="stat">👟 ' + filled + ' strzelców</span>');
+    stats[1] = `<span class="stat">👤 ${players.length} zawodników</span>`;
   }
 
-  if (stats.length) {
-    el.innerHTML = stats.join('<span class="stat-sep">·</span>');
-    el.style.display = 'flex';
-  }
+  el.innerHTML = stats.join('<span class="stat-sep">·</span>');
+  el.style.display = 'flex';
+
 })();
 </script>
 

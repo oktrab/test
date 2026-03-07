@@ -1,4 +1,6 @@
-// strzelcy/app.js v14 — z obsługą stage-fit
+// ══════════════════════════════════════════════
+//  strzelcy/app.js v15
+// ══════════════════════════════════════════════
 (function () {
   'use strict';
 
@@ -10,6 +12,7 @@
   var AC_HIDE_MS = 150;
   var MAX_DB_VISIBLE = 300;
   var SAVE_DELAY = 400;
+  var DEFAULT_ROWS = 10;
   var VALID_CC = ['SZ', 'W', 'Z', 'A'];
   var PLACEHOLDER_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">'
@@ -25,6 +28,7 @@
     { code: 'A',  name: 'Aleksandria', cls: 'a'  }
   ];
 
+  /* ═══ STORAGE ═══ */
   var storage = {
     set: function (k, data, ttl) {
       try {
@@ -49,6 +53,7 @@
     }
   };
 
+  /* ═══ HELPERS ═══ */
   var $ = function (id) { return document.getElementById(id); };
 
   function escapeHtml(s) {
@@ -75,7 +80,9 @@
   }
 
   function abbr(name) {
-    return String(name || '').trim().split(/\s+/).map(function (p) { return p[0]; }).join('').slice(0, 3).toUpperCase();
+    return String(name || '').trim().split(/\s+/).map(function (p) {
+      return p[0];
+    }).join('').slice(0, 3).toUpperCase();
   }
 
   function colorFor(name) {
@@ -127,9 +134,12 @@
     catch (e) { return null; }
   }
 
+  /* ═══ DOM REFS ═══ */
   var rowsEl            = $('rows');
   var btnExport         = $('btnExport');
   var btnReset          = $('btnReset');
+  var btnAddRow         = $('btnAddRow');
+  var btnRemoveRow      = $('btnRemoveRow');
   var scTitleEl         = $('scTitle');
   var btnSortGoals      = $('btnSortGoals');
   var pdbErrorEl        = $('pdbError');
@@ -140,7 +150,9 @@
   var pdbListEl         = $('pdbList');
   var pdbCcFilterEl     = $('pdbCcFilter');
   var pdbClubSelectEl   = $('pdbClub');
+  var rowCountEl        = $('rowCount');
 
+  /* ═══ STATE ═══ */
   var playersDb = [];
   var scorers = [];
   var rowsSortable = null;
@@ -150,6 +162,7 @@
   var LS_PLAYERS_DB = 'scorers_db_v1';
   var activeACBox = null;
 
+  /* ═══ CC MENU (globalny dropdown) ═══ */
   var ccMenuEl = null;
   var ccMenuOnPick = null;
 
@@ -216,6 +229,7 @@
     if (e.key === 'Escape') hideCCMenu();
   });
 
+  /* ═══ CC PICKER (w wierszu) ═══ */
   function buildCCPicker(model, onChange) {
     var wrap = document.createElement('div');
     wrap.className = 'cc';
@@ -242,6 +256,7 @@
     return wrap;
   }
 
+  /* ═══ AUTOCOMPLETE ═══ */
   function isNameUsed(name, exceptIdx) {
     var nn = normalizeName(name);
     if (!nn) return false;
@@ -325,15 +340,26 @@
     return data[parseInt(sel.dataset.idx, 10) || 0] || null;
   }
 
+  /* ═══ SCORERS — domyślne wiersze ═══ */
   function defaultScorers() {
     var arr = [];
-    for (var i = 0; i < 10; i++) arr.push({ name: '', goals: 0, club: '', cc: '' });
+    for (var i = 0; i < DEFAULT_ROWS; i++) {
+      arr.push({ name: '', goals: 0, club: '', cc: '' });
+    }
     return arr;
   }
 
+  function updateRowCount() {
+    if (rowCountEl) {
+      rowCountEl.textContent = scorers.length;
+    }
+  }
+
+  /* ═══ RENDER ═══ */
   function render() {
     destroyActiveAC();
     rowsEl.innerHTML = '';
+
     scorers.forEach(function (s, i) {
       var row = document.createElement('div');
       row.className = 'row-item';
@@ -352,18 +378,25 @@
       setAutoLogo(img, s.club);
       var ccCell = row.querySelector('.cc-cell');
       ccCell.appendChild(buildCCPicker(s, function () { saveStateSoon(); }));
+
       attachNameHandlers(row, s, i);
       attachGoalsHandlers(row, s, i);
       attachDropHandlers(row, i);
       rowsEl.appendChild(row);
     });
+
+    updateRowCount();
     initDnD();
-    renderPlayersDbList();
+
+    // Renderuj listę bazy TYLKO jeśli playersDb jest już załadowane
+    if (playersDb.length) {
+      renderPlayersDbList();
+    }
   }
 
+  /* ═══ NAME HANDLERS ═══ */
   function attachNameHandlers(row, s, i) {
     var nameEl = row.querySelector('.name');
-    var img = row.querySelector('.logo');
     var acBox = null;
     var acData = [];
     var accepted = false;
@@ -418,8 +451,10 @@
     });
   }
 
+  /* ═══ GOALS HANDLERS ═══ */
   function attachGoalsHandlers(row, s, i) {
     var gEl = row.querySelector('.gval');
+
     gEl.addEventListener('beforeinput', function (e) {
       if (e.inputType === 'insertText') {
         if (!/^\d$/.test(e.data || '')) e.preventDefault();
@@ -445,6 +480,7 @@
     });
   }
 
+  /* ═══ DROP HANDLERS ═══ */
   function attachDropHandlers(row, i) {
     row.addEventListener('dragover', function (e) {
       var types = e.dataTransfer && e.dataTransfer.types
@@ -478,6 +514,7 @@
     });
   }
 
+  /* ═══ SORTABLE DND ═══ */
   function initDnD() {
     if (typeof Sortable === 'undefined') return;
     if (rowsSortable && rowsSortable.destroy) rowsSortable.destroy();
@@ -495,6 +532,45 @@
     });
   }
 
+  /* ═══ DODAJ / USUŃ WIERSZ ═══ */
+  if (btnAddRow) {
+    btnAddRow.addEventListener('click', function () {
+      scorers.push({ name: '', goals: 0, club: '', cc: '' });
+      render();
+      saveStateSoon();
+
+      // Scroll do nowego wiersza
+      var lastRow = rowsEl.lastElementChild;
+      if (lastRow) lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  if (btnRemoveRow) {
+    btnRemoveRow.addEventListener('click', function () {
+      if (scorers.length <= 1) return;
+
+      // Usuń ostatni PUSTY wiersz, albo po prostu ostatni
+      var idxToRemove = -1;
+      for (var i = scorers.length - 1; i >= 0; i--) {
+        if (!scorers[i].name.trim()) {
+          idxToRemove = i;
+          break;
+        }
+      }
+
+      if (idxToRemove === -1) {
+        // Wszystkie mają dane — zapytaj
+        if (!confirm('Wszystkie wiersze mają dane. Usunąć ostatni?')) return;
+        idxToRemove = scorers.length - 1;
+      }
+
+      scorers.splice(idxToRemove, 1);
+      render();
+      saveStateSoon();
+    });
+  }
+
+  /* ═══ BAZA ZAWODNIKÓW — panel boczny ═══ */
   function usedPlayersSet() {
     var s = {};
     scorers.forEach(function (x) {
@@ -513,8 +589,9 @@
     });
     pdbClubSelectEl.innerHTML = '<option value="">Wszystkie kluby</option>'
       + Object.keys(clubs).sort(function (a, b) { return a.localeCompare(b, 'pl'); })
-        .map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; })
-        .join('');
+        .map(function (c) {
+          return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+        }).join('');
   }
 
   function updateCcFilterUI() {
@@ -531,6 +608,7 @@
     if (!pdbListEl) return;
     var q = stripAccents(String(pdbSearchEl && pdbSearchEl.value || '').trim());
     var used = usedPlayersSet();
+
     var list = playersDb.filter(function (p) {
       if (selectedPdbCC && String(p.cc || '').toUpperCase() !== selectedPdbCC) return false;
       if (selectedPdbClub && String(p.club || '') !== selectedPdbClub) return false;
@@ -543,18 +621,35 @@
 
     pdbListEl.innerHTML = '';
     var max = Math.min(list.length, MAX_DB_VISIBLE);
+
+    if (max === 0 && playersDb.length === 0) {
+      pdbListEl.innerHTML = '<div style="padding:12px;color:#a9b6cb;font-size:13px">'
+        + 'Brak zawodników w bazie. Załaduj plik JSON lub dodaj w edytorze.'
+        + '</div>';
+      return;
+    }
+
+    if (max === 0) {
+      pdbListEl.innerHTML = '<div style="padding:12px;color:#a9b6cb;font-size:13px">'
+        + 'Brak wyników dla aktualnych filtrów.'
+        + '</div>';
+      return;
+    }
+
     for (var idx = 0; idx < max; idx++) {
       var p = list[idx];
       var disabled = !!used[normalizeName(p.name)];
       var item = document.createElement('div');
       item.className = 'pdb-item';
       item.style.setProperty('--badge', colorFor(p.name));
-      item.setAttribute('aria-disabled', disabled);
+      item.setAttribute('aria-disabled', disabled ? 'true' : 'false');
       item.draggable = !disabled;
       item.innerHTML =
         '<span class="pdb-badge">' + escapeHtml(abbr(p.name)) + '</span>'
         + '<span class="pdb-name">' + escapeHtml(p.name + (p.club ? ' – ' + p.club : '')) + '</span>'
-        + '<span class="pdb-cc" data-cc="' + escapeHtml(p.cc || '') + '">' + escapeHtml(p.cc || '') + '</span>';
+        + '<span class="pdb-cc" data-cc="' + escapeHtml(p.cc || '') + '">'
+          + escapeHtml(p.cc || '') + '</span>';
+
       if (!disabled) {
         (function (player) {
           item.addEventListener('dragstart', function (e) {
@@ -567,6 +662,13 @@
       }
       pdbListEl.appendChild(item);
     }
+
+    // Pokaż licznik
+    if (list.length > max) {
+      pdbListEl.innerHTML += '<div style="padding:8px;color:#a9b6cb;font-size:12px;text-align:center">'
+        + '…i ' + (list.length - max) + ' więcej'
+        + '</div>';
+    }
   }
 
   function showPdbError(msg) {
@@ -577,7 +679,9 @@
     if (pdbErrorEl) { pdbErrorEl.setAttribute('hidden', ''); pdbErrorEl.textContent = ''; }
   }
 
+  /* ═══ ŁADOWANIE BAZY ZAWODNIKÓW ═══ */
   function loadPlayersDb() {
+    // 1. Inline
     var inline = tryInlinePlayers();
     if (inline && inline.length) {
       playersDb = inline;
@@ -586,6 +690,8 @@
       renderPlayersDbList();
       return;
     }
+
+    // 2. LocalStorage (ten sam klucz co edytor)
     var cached = storage.get(LS_PLAYERS_DB);
     if (Array.isArray(cached) && cached.length) {
       playersDb = normalizePlayersArray(cached);
@@ -594,6 +700,8 @@
       renderPlayersDbList();
       return;
     }
+
+    // 3. Fetch z serwera
     fetch(PLAYERS_DB_URL + '?cb=' + Date.now(), { cache: 'no-store' })
       .then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -604,7 +712,21 @@
         if (!norm.length) throw new Error('Pusta baza');
         playersDb = norm;
       })
-      .catch(function () { playersDb = []; })
+      .catch(function () {
+        // 4. Fallback sample
+        playersDb = normalizePlayersArray([
+          { name: 'Jan Kowalski',       goals: 12, club: 'Zamieć Bór',            cc: 'SZ' },
+          { name: 'Aras Veld',          goals: 9,  club: 'Union Zephyr',          cc: 'Z'  },
+          { name: 'Mateusz Bryłka',     goals: 8,  club: 'WKS Nowy Bór',          cc: 'W'  },
+          { name: 'Lukas Ried',         goals: 7,  club: 'Areniscas Cadin',       cc: 'W'  },
+          { name: 'Oskar Drzewiecki',   goals: 7,  club: 'Garbarnia Baczów',      cc: 'SZ' },
+          { name: 'Ihor Stelmach',      goals: 6,  club: 'Olimpia Aavekaupunki',  cc: 'SZ' },
+          { name: 'Sami Nurmi',         goals: 6,  club: 'ZAM Trub',              cc: 'SZ' },
+          { name: 'Dorian Kriets',      goals: 5,  club: 'Union Zephyr',          cc: 'Z'  },
+          { name: 'Wojciech Lis',       goals: 5,  club: 'Biali Tatarów',         cc: 'SZ' },
+          { name: 'Rafał Zięba',        goals: 4,  club: 'Czarni Baczów',         cc: 'SZ' }
+        ]);
+      })
       .then(function () {
         hidePdbError();
         fillClubsFilter();
@@ -612,39 +734,67 @@
       });
   }
 
+  /* ═══ NASŁUCHIWANIE NA ZMIANY W LOCALSTORAGE (inna karta) ═══ */
+  window.addEventListener('storage', function (e) {
+    if (e.key === LS_PLAYERS_DB) {
+      // Baza zawodników zmieniona w innej karcie (np. edytor)
+      var fresh = storage.get(LS_PLAYERS_DB);
+      if (Array.isArray(fresh) && fresh.length) {
+        playersDb = normalizePlayersArray(fresh);
+      } else {
+        playersDb = [];
+      }
+      fillClubsFilter();
+      renderPlayersDbList();
+    }
+  });
+
+  /* ═══ PANEL EVENTS — jednorazowo ═══ */
   function initPanelEvents() {
     if (btnLoadPlayersDb && filePlayersDbEl) {
       btnLoadPlayersDb.addEventListener('click', function () { filePlayersDbEl.click(); });
       filePlayersDbEl.addEventListener('change', function (e) {
         var f = e.target.files && e.target.files[0];
         if (!f) return;
-        f.text().then(function (txt) {
-          var norm = normalizePlayersArray(JSON.parse(txt));
-          if (!norm.length) throw new Error('Plik nie zawiera zawodników.');
-          playersDb = norm;
-          storage.set(LS_PLAYERS_DB, playersDb, ONE_DAY);
-          hidePdbError();
-          fillClubsFilter();
-          renderPlayersDbList();
-        }).catch(function (err) {
-          alert('Błąd: ' + (err.message || err));
-        });
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          try {
+            var norm = normalizePlayersArray(JSON.parse(ev.target.result));
+            if (!norm.length) throw new Error('Plik nie zawiera zawodników.');
+            playersDb = norm;
+            storage.set(LS_PLAYERS_DB, playersDb, ONE_DAY);
+            hidePdbError();
+            fillClubsFilter();
+            renderPlayersDbList();
+            alert('Załadowano ' + norm.length + ' zawodników (lokalnie, 24h).');
+          } catch (err) {
+            alert('Błąd: ' + (err.message || err));
+          }
+        };
+        reader.readAsText(f);
         filePlayersDbEl.value = '';
       });
     }
+
     if (btnDownloadDb) {
       btnDownloadDb.addEventListener('click', function () {
-        var blob = new Blob([JSON.stringify(playersDb || [], null, 2)], { type: 'application/json' });
+        var blob = new Blob(
+          [JSON.stringify(playersDb || [], null, 2)],
+          { type: 'application/json' }
+        );
+        var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = url;
         a.download = 'zawodnicy.json';
         a.click();
-        URL.revokeObjectURL(a.href);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
       });
     }
+
     if (pdbSearchEl) {
       pdbSearchEl.addEventListener('input', debounce(renderPlayersDbList, 200));
     }
+
     if (pdbCcFilterEl) {
       var pills = pdbCcFilterEl.querySelectorAll('.country-pill');
       for (var i = 0; i < pills.length; i++) {
@@ -658,6 +808,7 @@
         })(pills[i]);
       }
     }
+
     if (pdbClubSelectEl) {
       pdbClubSelectEl.addEventListener('change', function () {
         selectedPdbClub = pdbClubSelectEl.value || '';
@@ -666,6 +817,7 @@
     }
   }
 
+  /* ═══ SORTOWANIE ═══ */
   if (btnSortGoals) {
     btnSortGoals.addEventListener('click', function () {
       if (sortGoalsMode === 'none' || sortGoalsMode === 'asc') {
@@ -682,7 +834,7 @@
     });
   }
 
-  /* ═══ EKSPORT JPG — Z STAGE-FIT ═══ */
+  /* ═══ EKSPORT JPG ═══ */
   function waitForImages(node) {
     var imgs = node.querySelectorAll('img');
     var promises = [];
@@ -710,13 +862,15 @@
       hideCCMenu();
       destroyActiveAC();
 
-      // ✅ Wyłącz skalowanie na czas eksportu
       if (window.stageFit) window.stageFit.disable();
 
       waitForImages(stage)
-        .then(function () { return new Promise(function (r) { requestAnimationFrame(r); }); })
         .then(function () {
-          var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#f2f6fb';
+          return new Promise(function (r) { requestAnimationFrame(r); });
+        })
+        .then(function () {
+          var bg = getComputedStyle(document.documentElement)
+            .getPropertyValue('--bg') || '#f2f6fb';
           return htmlToImage.toJpeg(stage, {
             quality: 0.95,
             backgroundColor: bg.trim(),
@@ -735,12 +889,12 @@
         })
         .then(function () {
           stage.classList.remove('exporting');
-          // ✅ Przywróć skalowanie
           if (window.stageFit) window.stageFit.enable();
         });
     });
   }
 
+  /* ═══ ZAPIS / ODCZYT STANU ═══ */
   var saveTimer = null;
 
   function saveState() {
@@ -772,8 +926,10 @@
     return true;
   }
 
+  /* ═══ RESET ═══ */
   if (btnReset) {
     btnReset.addEventListener('click', function () {
+      if (!confirm('Wyczyścić tabelę strzelców?')) return;
       scorers = defaultScorers();
       if (scTitleEl) scTitleEl.textContent = 'Król Strzelców';
       saveStateSoon();
@@ -781,6 +937,7 @@
     });
   }
 
+  /* ═══ TITLE EDIT ═══ */
   if (scTitleEl) {
     var titleTimer = null;
     scTitleEl.addEventListener('input', function () {
@@ -789,9 +946,24 @@
     });
     scTitleEl.addEventListener('blur', saveState);
   }
+    
+  /* ═══ NASŁUCHIWANIE NA ZMIANY Z EDYTORA (inna karta) ═══ */
+  window.addEventListener('storage', function (e) {
+    if (e.key === LS_PLAYERS_DB) {
+      var fresh = storage.get(LS_PLAYERS_DB);
+      if (Array.isArray(fresh) && fresh.length) {
+        playersDb = normalizePlayersArray(fresh);
+      } else {
+        playersDb = [];
+      }
+      fillClubsFilter();
+      renderPlayersDbList();
+    }
+  });    
 
+  /* ═══ START ═══ */
   if (!loadState()) {
-    var db = storage.get('scorers_db_v1');
+    var db = storage.get(LS_PLAYERS_DB);
     scorers = Array.isArray(db) && db.length
       ? normalizePlayersArray(db)
       : defaultScorers();

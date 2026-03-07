@@ -44,14 +44,16 @@ body {
 }
 
 .panel {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-  max-width: 980px;
-  width: 100%;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #223055 transparent;
 }
+
+.panel::-webkit-scrollbar { width: 6px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { background: #223055; border-radius: 3px; }
+.panel::-webkit-scrollbar-thumb:hover { background: #2a3c6b; }
 
 /* ═══ NAV ═══ */
 .nav {
