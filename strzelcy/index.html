@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Król Strzelców</title>
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
+        as="style" onload="this.rel='stylesheet'">
+  <link rel="stylesheet" href="styles.css?v=13">
+</head>
+<body>
+<main class="app">
+  <aside class="panel">
+
+    <nav class="row nav">
+      <a href="../liga/index.html" class="btn secondary">Generator Tabeli</a>
+      <a href="./index.html" class="btn">Król Strzelców</a>
+      <a href="../baza/index.html" class="btn secondary">Baza Danych</a>
+    </nav>
+
+    <details class="sec" id="secScSettings" open>
+      <summary>Operacje</summary>
+      <div class="row actions-row">
+        <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
+        <button id="btnReset" class="btn secondary">Reset (10 wierszy)</button>
+      </div>
+      <p class="note note-top">
+        Kliknij "Imię i nazwisko", aby wpisać zawodnika (podpowiedzi: Enter/Esc/↑/↓).
+        <br>Kliknij "Kraj" i wybierz SZ/W/Z/A.
+      </p>
+    </details>
+
+    <hr class="sep">
+
+    <details class="sec" id="secScPlayersDb" open>
+      <summary>Baza zawodników</summary>
+
+      <div id="pdbError" class="db-error" hidden></div>
+
+      <div class="row actions-row">
+        <input id="filePlayersDb" type="file" accept=".json" hidden>
+        <button id="btnLoadPlayersDb" class="btn secondary">Wczytaj JSON (zawodnicy)</button>
+        <button id="btnDownloadPlayersDb" class="btn">Pobierz JSON (zawodnicy)</button>
+      </div>
+
+      <div class="country-filter" id="pdbCcFilter">
+        <button type="button" class="country-pill" data-cc="SZ" title="Szwajcaria">SZ</button>
+        <button type="button" class="country-pill" data-cc="W" title="Wosterg">W</button>
+        <button type="button" class="country-pill" data-cc="Z" title="Zephyria">Z</button>
+        <button type="button" class="country-pill" data-cc="A" title="Aleksandria">A</button>
+        <button type="button" class="country-pill clear" data-cc="__clear" title="Wyczyść">Wyczyść</button>
+      </div>
+
+      <div class="row club-row">
+        <label for="pdbClub">Klub:</label>
+        <select id="pdbClub" class="select club-select">
+          <option value="">Wszystkie kluby</option>
+        </select>
+      </div>
+
+      <input id="pdbSearch" type="text" placeholder="Szukaj zawodnika lub klubu..." class="db-search">
+      <div id="pdbList" class="pdb-list"></div>
+    </details>
+
+    <details class="help" id="helpBox" open>
+      <summary>Pomoc</summary>
+      <div class="help-grid">
+        <div class="help-sec">
+          <h4>Wiersze</h4>
+          <ul>
+            <li>Poz. – uchwyt do przeciągania (zmiana kolejności).</li>
+            <li>Kraj – kliknij i wybierz (SZ/W/Z/A).</li>
+            <li><strong>Imię i nazwisko</strong> – wpisz, podpowiedzi z bazy.</li>
+            <li>Gole – liczba (Enter zatwierdza).</li>
+            <li>Przeciągnij zawodnika z bazy na wiersz, by uzupełnić dane.</li>
+          </ul>
+        </div>
+        <div class="help-sec">
+          <h4>Baza zawodników</h4>
+          <ul>
+            <li>Filtry po kraju (SZ/W/Z/A) i klubie, wyszukiwarka.</li>
+            <li>Wczytaj/pobierz JSON (lokalnie 24h).</li>
+            <li>Zawodnicy już użyci w tabeli są zablokowani.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <div class="stage-wrap">
+    <div id="stage" class="stage">
+      <div class="topbar">
+        <h1 class="title" id="scTitle" contenteditable="true">Król Strzelców</h1>
+      </div>
+      <div class="board">
+        <div class="board-header">
+          <div class="header-pos">Poz.</div>
+          <div>Herb</div>
+          <div class="th-cc">Kraj</div>
+          <div>Zawodnik</div>
+          <div class="header-right">
+            <span>Gole</span>
+            <button id="btnSortGoals" class="sort-btn" title="Sortuj po golach">↕</button>
+          </div>
+        </div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">powered by OKB</footer>
+
+<script id="playersInline" type="application/json">
+[
+  { "name": "Jan Kowalski", "goals": 12, "club": "Zamieć Bór", "cc": "SZ" },
+  { "name": "Aras Veld", "goals": 9, "club": "Union Zephyr", "cc": "Z" },
+  { "name": "Mateusz Bryłka", "goals": 8, "club": "WKS Nowy Bór", "cc": "W" },
+  { "name": "Lukas Ried", "goals": 7, "club": "Areniscas Cadin", "cc": "W" },
+  { "name": "Oskar Drzewiecki", "goals": 7, "club": "Garbarnia Baczów", "cc": "SZ" },
+  { "name": "Ihor Stelmach", "goals": 6, "club": "Olimpia Aavekaupunki", "cc": "SZ" },
+  { "name": "Sami Nurmi", "goals": 6, "club": "ZAM Trub", "cc": "SZ" },
+  { "name": "Dorian Kriets", "goals": 5, "club": "Union Zephyr", "cc": "Z" },
+  { "name": "Wojciech Lis", "goals": 5, "club": "Biali Tatarów", "cc": "SZ" },
+  { "name": "Rafał Zięba", "goals": 4, "club": "Czarni Baczów", "cc": "SZ" }
+]
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="app.js?v=13"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Edytor bazy klubów</title>
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
+        as="style" onload="this.rel='stylesheet'">
+  <link rel="stylesheet" href="../styles.css?v=4">
+</head>
+<body>
+
+<main class="app">
+  <section class="panel">
+
+    <!-- Nawigacja -->
+    <nav class="row nav">
+      <a href="../../liga/index.html" class="btn secondary">Generator Tabeli</a>
+      <a href="../../strzelcy/index.html" class="btn secondary">Król Strzelców</a>
+      <a href="../index.html" class="btn">Baza Danych</a>
+    </nav>
+
+    <h1>Edytor bazy klubów</h1>
+
+    <div class="switcher">
+      <a href="../zawodnicy/index.html"
+         class="switch-btn to-players"
+         id="swToPlayers">
+        Edytor zawodników →
+      </a>
+    </div>
+
+    <!-- Prosty edytor -->
+    <details class="sec" open>
+      <summary>Prosty edytor (formularz)</summary>
+
+      <div class="toolbar">
+        <button id="btnFormAddClub" class="btn secondary">+ Dodaj klub</button>
+        <button id="btnFormSyncToJson" class="btn">Formularz → JSON</button>
+        <span class="status" id="statusClubsForm">Gotowe.</span>
+      </div>
+
+      <div id="clubsForm"></div>
+    </details>
+
+    <!-- Zaawansowany edytor -->
+    <details class="sec">
+      <summary>Zaawansowany (JSON)</summary>
+
+      <div class="editor">
+        <textarea id="taClubs"
+                  class="textarea"
+                  spellcheck="false"
+                  placeholder='[{"name":"...","country":"SZ|W|I","tags":["⚽","🏀"]}]'
+        ></textarea>
+
+        <div class="toolbar">
+          <input id="fileClubs" type="file" accept=".json" hidden>
+          <button id="btnLoadClubsFile"   class="btn secondary">Wczytaj z pliku</button>
+          <button id="btnLoadClubsServer" class="btn secondary">Załaduj z kluby.json</button>
+          <button id="btnFormatClubs"     class="btn secondary">Sformatuj JSON</button>
+          <button id="btnSaveClubs"       class="btn">Zapisz jako bazę (24h)</button>
+          <button id="btnDownloadClubs"   class="btn">Pobierz JSON</button>
+          <button id="btnClearOverride"   class="btn secondary">Wyczyść lokalną bazę</button>
+          <button id="btnFormSyncFromJson" class="btn secondary">Z JSON → Formularz</button>
+        </div>
+
+        <div id="statusClubs" class="status">Gotowe.</div>
+      </div>
+    </details>
+
+  </section>
+</main>
+
+<footer class="site-footer">powered by OKB</footer>
+<script src="app.js?v=9"></script>
+</body>
+</html>

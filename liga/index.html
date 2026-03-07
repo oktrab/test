@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Generator Tabeli Ligowej</title>
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
+        as="style" onload="this.rel='stylesheet'">
+  <link rel="stylesheet" href="styles.css?v=21">
+</head>
+<body>
+<main class="app">
+  <aside class="panel">
+
+    <!-- Nawigacja -->
+    <nav class="row nav">
+      <a href="./index.html" class="btn">Generator Tabeli</a>
+      <a href="../strzelcy/index.html" class="btn secondary">Król Strzelców</a>
+      <a href="../baza/index.html" class="btn secondary">Baza Danych</a>
+    </nav>
+
+    <!-- Ustawienia -->
+    <details class="sec" id="secSettings" open>
+      <summary>Ustawienia</summary>
+
+      <div class="row">
+        <label for="inPodium">Podium (1–3):</label>
+        <input id="inPodium" type="number" min="1" max="3" value="3" class="input-sm">
+      </div>
+      <div class="row">
+        <label for="inPlayoff">Ilość miejsc barażowych (awans):</label>
+        <input id="inPlayoff" type="number" min="0" value="0" class="input-sm">
+      </div>
+      <div class="row">
+        <label for="inReleg">Ilość miejsc spadkowych:</label>
+        <input id="inReleg" type="number" min="0" value="2" class="input-sm">
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><span class="chip chip-gold"></span><span>Podium</span></div>
+        <div class="legend-item"><span class="chip chip-green"></span><span>Baraże (awans)</span></div>
+        <div class="legend-item"><span class="chip chip-red"></span><span>Spadek</span></div>
+      </div>
+
+      <div class="row actions-row">
+        <button id="btnAdd" class="btn secondary">Dodaj wiersz</button>
+        <button id="btnReset" class="btn secondary">Reset (domyślne)</button>
+        <button id="btnExport" class="btn">Zapisz JPG 1920×1080</button>
+        <button id="btnExportAll" class="btn" title="Używaj, gdy masz >12 drużyn">Zapisz JPG – wszystkie wiersze (>12)</button>
+      </div>
+
+      <div class="subhead">Profile lig</div>
+      <div class="row profile-row">
+        <input id="profileName" type="text" placeholder="Nazwa profilu..." class="text profile-name">
+        <button id="btnProfileSave" class="btn secondary">Zapisz profil</button>
+      </div>
+      <div class="row profile-row">
+        <select id="profileSelect" class="select profile-select"></select>
+        <button id="btnProfileLoad" class="btn secondary">Wczytaj</button>
+        <button id="btnProfileDelete" class="btn secondary" disabled>Usuń</button>
+      </div>
+    </details>
+
+    <hr class="sep">
+
+    <!-- Baza klubów -->
+    <details class="sec" id="secDb" open>
+      <summary>Baza klubów</summary>
+
+      <div id="dbError" class="db-error" hidden></div>
+      <p class="note">
+        Przeciągnij klub z listy na wiersz, aby podmienić.
+        Filtruj po dyscyplinie i kraju. Klik w klub – zaznacza go.
+      </p>
+
+      <div class="tag-filter" id="tagFilter">
+        <button type="button" class="tag-pill" data-tag="⚽" title="Piłka nożna">⚽</button>
+        <button type="button" class="tag-pill" data-tag="🏀" title="Koszykówka">🏀</button>
+        <button type="button" class="tag-pill clear" data-tag="__clear" title="Wyczyść">Wyczyść</button>
+      </div>
+
+      <div class="country-filter" id="countryFilter">
+        <button type="button" class="country-pill" data-country="SZ" title="Szwajcaria">SZ</button>
+        <button type="button" class="country-pill" data-country="W" title="Wosterg">W</button>
+        <button type="button" class="country-pill" data-country="I" title="Inne kraje">I</button>
+        <button type="button" class="country-pill clear" data-country="__clear" title="Wyczyść">Wyczyść</button>
+      </div>
+
+      <input id="dbSearch" type="text" placeholder="Szukaj klubu..." class="db-search">
+      <div id="dbList" class="db-list"></div>
+
+      <div class="row db-actions">
+        <button id="btnDbAdd" class="btn secondary" disabled>Dodaj na koniec</button>
+        <button id="btnDbReplace" class="btn secondary" disabled>Zastąp zaznaczony</button>
+      </div>
+
+      <div class="row db-actions">
+        <input id="fileDb" type="file" accept=".json" hidden>
+        <button id="btnLoadDb" class="btn secondary">Wczytaj JSON</button>
+        <button id="btnDownloadDb" class="btn">Pobierz JSON</button>
+      </div>
+    </details>
+
+    <!-- Pomoc -->
+    <details class="help" id="helpBox" open>
+      <summary>Pomoc i legenda</summary>
+      <div class="help-grid">
+        <div class="help-sec">
+          <h4>Operacje w tabeli</h4>
+          <ul>
+            <li>Przeciągnij uchwytem w kolumnie <strong>Poz.</strong>, aby zmienić kolejność.</li>
+            <li>Kliknij <strong>nazwę</strong>, aby edytować (podpowiedzi z bazy).</li>
+            <li>Kliknij w <strong>Pkt</strong>, aby edytować. <strong>↕</strong> sortuje po punktach.</li>
+            <li><strong>↑ ↓ ✕</strong> – góra / dół / usuń wiersz.</li>
+            <li>Przeciągnięcie klubu z bazy na wiersz – podmienia; na tablicę – dodaje na koniec.</li>
+          </ul>
+        </div>
+        <div class="help-sec">
+          <h4>Baza klubów</h4>
+          <ul>
+            <li>Filtry ⚽/🏀 i kraje: SZ/W/I.</li>
+            <li>Wczytaj/Pobierz JSON – lokalnie (24h).</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <!-- STAGE (eksportowane do JPG) -->
+  <div class="stage-wrap">
+    <div id="stage" class="stage">
+      <div class="topbar">
+        <h1 class="title" id="leagueTitle" contenteditable="true">Tabela ligowa</h1>
+      </div>
+      <div class="board">
+        <div class="board-header">
+          <div class="header-pos">Poz.</div>
+          <div>Drużyna</div>
+          <div class="header-points">
+            <span>Pkt</span>
+            <button id="btnSortPts" class="sort-btn" title="Sortuj po punktach">↕</button>
+          </div>
+        </div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">powered by OKB</footer>
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="app.js?v=21"></script>
+</body>
+</html>

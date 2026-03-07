@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baza Danych</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap"
+        as="style" onload="this.rel='stylesheet'">
+  <link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+
+<main class="app">
+  <section class="panel">
+
+    <nav class="nav" aria-label="Główna nawigacja">
+      <a href="../liga/index.html" class="btn secondary">Generator Tabeli</a>
+      <a href="../strzelcy/index.html" class="btn secondary">Król Strzelców</a>
+      <a href="./index.html" class="btn" aria-current="page">Baza Danych</a>
+    </nav>
+
+    <details class="sec" open>
+      <summary>Wybierz edytor</summary>
+
+      <div class="cards">
+        <a href="./kluby/index.html" class="card">
+          <div class="card-title">Edytor bazy klubów</div>
+          <div class="card-desc">
+            Zarządzaj listą klubów (SZ/W/I, tagi ⚽/🏀).
+            Wczytaj i zapisz JSON (24h lokalnie).
+          </div>
+          <div class="card-cta">Otwórz →</div>
+        </a>
+
+        <a href="./zawodnicy/index.html" class="card">
+          <div class="card-title">Edytor bazy zawodników</div>
+          <div class="card-desc">
+            Lista zawodników (imię i nazwisko, gole, klub, kraj SZ/W/Z/A).
+            Wczytaj/zapisz JSON.
+          </div>
+          <div class="card-cta">Otwórz →</div>
+        </a>
+      </div>
+    </details>
+
+    <details class="help" open>
+      <summary>Info</summary>
+      <div class="help-grid">
+        <div class="help-sec">
+          <h4>Jak to działa</h4>
+          <ul>
+            <li>Zapis odbywa się lokalnie (localStorage) na 24h — nie wysyłamy plików na serwer.</li>
+            <li>Generator Tabeli i Król Strzelców odczytują te bazy automatycznie (kluby) lub po „Zastosuj do Strzelców".</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+  </section>
+</main>
+
+<footer class="site-footer">powered by OKB</footer>
+
+</body>
+</html>

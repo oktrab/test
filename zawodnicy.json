@@ -1,0 +1,12 @@
+[
+  { "name": "Jan Kowalski", "goals": 12, "club": "Zamieć Bór", "cc": "SZ" },
+  { "name": "Aras Veld", "goals": 9, "club": "Union Zephyr", "cc": "Z" },
+  { "name": "Mateusz Bryłka", "goals": 8, "club": "WKS Nowy Bór", "cc": "W" },
+  { "name": "Lukas Ried", "goals": 7, "club": "Areniscas Cadin", "cc": "W" },
+  { "name": "Oskar Drzewiecki", "goals": 7, "club": "Garbarnia Baczów", "cc": "SZ" },
+  { "name": "Ihor Stelmach", "goals": 6, "club": "Olimpia Aavekaupunki", "cc": "SZ" },
+  { "name": "Sami Nurmi", "goals": 6, "club": "ZAM Trub", "cc": "SZ" },
+  { "name": "Dorian Kriets", "goals": 5, "club": "Union Zephyr", "cc": "Z" },
+  { "name": "Wojciech Lis", "goals": 5, "club": "Biali Tatarów", "cc": "SZ" },
+  { "name": "Rafał Zięba", "goals": 4, "club": "Czarni Baczów", "cc": "SZ" }
+]
