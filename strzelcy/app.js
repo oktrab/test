@@ -266,6 +266,13 @@
   }
 
   function playerSuggestions(query, exceptIdx) {
+    // ✅ Poprawna nazwa zmiennej jak w reszcie tego pliku
+    var localDb = storage.get('scorers_db_v1');
+    
+    // Jeżeli jest lokalna edytowana baza - ZAWSZE używaj tylko jej
+    if (Array.isArray(localDb) && localDb.length > 0) {
+        playersDb = localDb;
+    }
     var q = stripAccents(String(query || '').trim());
     if (!q) return [];
     var usedNames = {};
