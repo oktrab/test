@@ -962,12 +962,31 @@
   });    
 
   /* ═══ START ═══ */
-  if (!loadState()) {
-    var db = storage.get(LS_PLAYERS_DB);
-    scorers = Array.isArray(db) && db.length
-      ? normalizePlayersArray(db)
-      : defaultScorers();
-  }
+    if (!loadState()) {
+
+    // ✅ NAJPIERW sprawdź czy użytkownik ma własną edytowaną bazę
+    var userDb = storage.get('scorers_db_v1');
+
+    // ✅ JEŚLI JEST - UŻYJ TYLKO TEJ. Ignoruj domyślny plik z serwera.
+    if (Array.isArray(userDb) && userDb.length) {
+        scorers = normalizePlayersArray(userDb);
+    } 
+
+    // ✅ TYLKO jeżeli użytkownik nigdy nic nie edytował → załaduj domyślny z serwera
+    else {
+        fetch('../zawodnicy.json?cb=' + Date.now(), {cache: 'no-store'})
+            .then(r => r.ok ? r.json() : [])
+            .then(raw => normalizePlayersArray(raw))
+            .then(arr => arr.length ? arr : defaultScorers())
+            .then(data => { scorers = data; })
+            .catch(() => { scorers = defaultScorers(); })
+            .finally(() => { render(); });
+
+        return;
+    }
+}
+
+render();
 
   initPanelEvents();
   render();
